@@ -84,6 +84,7 @@ FacePlace is a simple node that will take in the bounded image from FaceOff (eit
 - Use lower inpaint strength to resemble aspects of the original face or surroundings. Higher strengths will make something new.
 - mediapipe isn't good at detecting faces with lots of face paint, hair covering the face, etc. Anything that obstructs the face will likely result in no faces being detected
 - If choosing 0 upscaling on FaceOff and upscaling the bounded image with something harsher like RealESRGAN before passing into inpaint, the edges of the bounded image may be noticeable after being placed back on the original image with FacePlace.
+
 <hr>
 
 # Usage Examples
@@ -92,23 +93,24 @@ FacePlace is a simple node that will take in the bounded image from FaceOff (eit
 
 FaceMask default usage with the inpaint node (July 27, 2023)
 
-[vid]
+https://github.com/ymgenesis/FaceTools/assets/25252829/41d742a7-f495-4478-98bf-1125ae62ffb6
 
 FaceMask inverted mask usage with the inpaint node (July 27, 2023)
 
-[vid]
+https://github.com/ymgenesis/FaceTools/assets/25252829/b327f204-52a0-4c67-ac81-03ae2dee90c7
 
 <hr>
+
 ### FaceOff
 
 FaceOff usage with the inpaint node, strength at 0.5 (July 27, 2023)
 
-[vid]
+https://github.com/ymgenesis/FaceTools/assets/25252829/273878cd-718a-423f-846e-3804848ff8d8
 
 FaceOff usage with the inpaint node, strength at 1.0 (July 27, 2023)
 
-[vid]
+https://github.com/ymgenesis/FaceTools/assets/25252829/e0bcdfff-3a58-4050-8cd1-aa67ec2ede61
 
 FaceOff usage with the inpaint node and Real-ESRGAN upscaling, strength at 1.0 (July 27, 2023)
 
-[vid]
+https://github.com/ymgenesis/FaceTools/assets/25252829/de08f6f2-0e29-4005-a20c-73d9b8cb853c
