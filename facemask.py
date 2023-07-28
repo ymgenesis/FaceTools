@@ -1,4 +1,4 @@
-## FaceMask 3.0
+## FaceMask 3.1
 ## A node for InvokeAI, written by YMGenesis/Matthew Janik
 
 from typing import Literal, Optional
@@ -49,6 +49,7 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
 
     # Inputs
     image:          Optional[ImageField]  = Field(default=None, description="Image to face detect")
+    faces:          int = Field(default=1, description="Maximum number of faces to detect")
     x_offset:       float = Field(default=0.0, description="Offset for the X-axis of the face mask")
     y_offset:       float = Field(default=0.0, description="Offset for the Y-axis of the face mask")
     invert_mask:    bool = Field(default=False, description="Toggle to invert the mask")
@@ -62,7 +63,7 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
             },
         }
 
-    def generate_face_mask(self, pil_image):
+    def generate_face_masks(self, pil_image):
         # Convert the PIL image to a NumPy array.
         np_image = np.array(pil_image, dtype=np.uint8)
 
@@ -73,7 +74,7 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
 
         # Create a FaceMesh object for face landmark detection and mesh generation.
         face_mesh = mp.solutions.face_mesh.FaceMesh(
-            min_detection_confidence=0.5, min_tracking_confidence=0.5)
+            max_num_faces=self.faces, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
         # Detect the face landmarks and mesh in the input image.
         results = face_mesh.process(np_image)
@@ -107,14 +108,14 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
             return mask_pil
 
         else:
-            raise ValueError("No face detected in the input image.")
-            context.services.logger.warning('No face detected in the input image.')
+            raise ValueError("Failed to detect 1 or more faces in the image.")
+            context.services.logger.warning('Failed to detect 1 or more faces in the image.')
 
     def invoke(self, context: InvocationContext) -> FaceMaskOutput:
         image = context.services.images.get_pil_image(self.image.image_name)
 
         # Generate the face mesh mask.
-        mask_pil = self.generate_face_mask(image)
+        mask_pil = self.generate_face_masks(image)
         if self.invert_mask:
             mask_pil = ImageOps.invert(mask_pil)
 
