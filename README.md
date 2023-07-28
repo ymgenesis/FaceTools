@@ -33,13 +33,14 @@ FaceOff will output the face in a bounded image, taking the face off of the orig
 
 ## FaceMask
 
-FaceMask mimics a user drawing a mask on a face in an image in Canvas. If the detected mask is imperfect and strays too far outside/inside the face, the node gives you X and Y offsets to shrink/grow the mask by a multiplier. By default, the mask is created to protect the face, with only the surrounding area being affected by inpainting (ie. putting a face on another body). When the mask is inverted, the mask protects the surrounding area, with only the face being affected by inpainting (ie. putting a different face on the same body).
+FaceMask mimics a user drawing masks on faces in an image in Canvas. If the detected masks are imperfect and stray too far outside/inside of faces, the node gives you X and Y offsets to shrink/grow the masks by a multiplier. By default, masks are created to protect faces, with only surrounding areas being affected by inpainting (ie. putting the same faces on new bodies). When masks are inverted, they protect surrounding areas, with only the faces being affected by inpainting (ie. putting new faces on the same bodies).
 
 ###### Inputs/Outputs
 
 | Input | Description |
 | -------- | ------------ |
 | Image | Image for face detection |
+| Faces | Maximum number of faces to detect |
 | X Offset | X-axis offset of the mask |
 | Y Offset | Y-axis offset of the mask |
 | Invert Mask | Toggle to invert the face mask |
@@ -90,6 +91,9 @@ FacePlace is a simple node that will take in the bounded image from FaceOff (eit
 # Usage Examples
 
 ### FaceMask
+
+Updated since video recordings:
+- Added "Faces" input field corresponding to the maximum number of faces to detect for the output mask
 
 FaceMask default usage with the inpaint node (July 27, 2023)
 
