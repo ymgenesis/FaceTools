@@ -80,7 +80,6 @@ class FaceIdentifierInvocation(BaseInvocation, PILInvocationConfig):
 
                 # Add face ID and its coordinates to the dictionary
                 face_IDs[current_face_id] = {"x_center": x_center, "y_center": y_center}
-                print(f"{face_IDs}")
                 # Increment the face ID for the next face
                 current_face_id += 1
 
