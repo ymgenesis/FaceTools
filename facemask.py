@@ -1,7 +1,7 @@
-## FaceMask 3.1
+## FaceMask 3.3
 ## A node for InvokeAI, written by YMGenesis/Matthew Janik
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 import cv2
@@ -48,11 +48,13 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
     type: Literal["face_mask_detection"] = "face_mask_detection"
 
     # Inputs
-    image:          Optional[ImageField]  = Field(default=None, description="Image to face detect")
-    faces:          int = Field(default=1, description="Maximum number of faces to detect")
-    x_offset:       float = Field(default=0.0, description="Offset for the X-axis of the face mask")
-    y_offset:       float = Field(default=0.0, description="Offset for the Y-axis of the face mask")
-    invert_mask:    bool = Field(default=False, description="Toggle to invert the mask")
+    image:                Optional[ImageField]  = Field(default=None, description="Image to face detect")
+    face_ids:             str = Field(default=0, description="0 for all faces, single digit for one, comma-separated list for multiple specific (1, 2, 4). Find face IDs with FaceIdentifier node.")
+    faces:                int = Field(default=4, description="Maximum number of faces to detect")
+    minimum_confidence:   float = Field(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")
+    x_offset:             float = Field(default=0.0, description="Offset for the X-axis of the face mask")
+    y_offset:             float = Field(default=0.0, description="Offset for the Y-axis of the face mask")
+    invert_mask:          bool = Field(default=False, description="Toggle to invert the mask")
     # fmt: on
 
     class Config(InvocationConfig):
@@ -62,6 +64,22 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
                 "tags": ["image", "face", "mask"]
             },
         }
+
+
+    def scale_and_convex(self, np_image, face_landmark_points):
+        # Apply the scaling offsets to the face landmark points.
+        scale_multiplier = 0.2
+        x_center = np.mean(face_landmark_points[:, 0])
+        y_center = np.mean(face_landmark_points[:, 1])
+        x_scaled = face_landmark_points[:, 0] + scale_multiplier * self.x_offset * (
+            face_landmark_points[:, 0] - x_center)
+        y_scaled = face_landmark_points[:, 1] + scale_multiplier * self.y_offset * (
+            face_landmark_points[:, 1] - y_center)
+
+        convex_hull = cv2.convexHull(np.column_stack(
+            (x_scaled, y_scaled)).astype(
+            np.int32))
+        cv2.fillConvexPoly(np_image, convex_hull, 255)
 
     def generate_face_masks(self, pil_image):
         # Convert the PIL image to a NumPy array.
@@ -74,7 +92,10 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
 
         # Create a FaceMesh object for face landmark detection and mesh generation.
         face_mesh = mp.solutions.face_mesh.FaceMesh(
-            max_num_faces=self.faces, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+            max_num_faces=self.faces,
+            min_detection_confidence=self.minimum_confidence,
+            min_tracking_confidence=self.minimum_confidence
+        )
 
         # Detect the face landmarks and mesh in the input image.
         results = face_mesh.process(np_image)
@@ -82,25 +103,31 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
         # Generate a binary face mask using the face mesh.
         mask_image = np.zeros_like(np_image[:, :, 0])
         if results.multi_face_landmarks:
-            for face_landmarks in results.multi_face_landmarks:
-                face_landmark_points = np.array(
-                    [[landmark.x * np_image.shape[1],
-                      landmark.y * np_image.shape[0]]
-                     for landmark in face_landmarks.landmark])
+            face_id_counter = 1  # Start face ID counter from 1
 
-                # Apply the scaling offsets to the face landmark points.
-                scale_multiplier = 0.2
-                x_center = np.mean(face_landmark_points[:, 0])
-                y_center = np.mean(face_landmark_points[:, 1])
-                x_scaled = face_landmark_points[:, 0] + scale_multiplier * self.x_offset * (
-                    face_landmark_points[:, 0] - x_center)
-                y_scaled = face_landmark_points[:, 1] + scale_multiplier * self.y_offset * (
-                    face_landmark_points[:, 1] - y_center)
+            if str(self.face_ids) == '0':
+                # If '0' is entered, mask all faces
+                for face_landmarks in results.multi_face_landmarks:
+                    face_landmark_points = np.array(
+                        [[landmark.x * np_image.shape[1],
+                          landmark.y * np_image.shape[0]]
+                         for landmark in face_landmarks.landmark])
 
-                convex_hull = cv2.convexHull(np.column_stack(
-                    (x_scaled, y_scaled)).astype(
-                    np.int32))
-                cv2.fillConvexPoly(mask_image, convex_hull, 255)
+                    self.scale_and_convex(mask_image, face_landmark_points)
+
+                    face_id_counter += 1  # Increment the face ID counter for the next face
+            else:
+                # If specific face IDs are provided, mask only those faces
+                for face_landmarks in results.multi_face_landmarks:
+                    if str(face_id_counter) in str(self.face_ids).split(', '):
+                        face_landmark_points = np.array(
+                            [[landmark.x * np_image.shape[1],
+                              landmark.y * np_image.shape[0]]
+                             for landmark in face_landmarks.landmark])
+
+                        self.scale_and_convex(mask_image, face_landmark_points)
+
+                    face_id_counter += 1  # Increment the face ID counter for the next face
 
             # Convert the binary mask image to a PIL Image.
             mask_pil = Image.fromarray(mask_image, mode='L')
@@ -110,6 +137,7 @@ class FaceMaskInvocation(BaseInvocation, PILInvocationConfig):
         else:
             raise ValueError("Failed to detect 1 or more faces in the image.")
             context.services.logger.warning('Failed to detect 1 or more faces in the image.')
+
 
     def invoke(self, context: InvocationContext) -> FaceMaskOutput:
         image = context.services.images.get_pil_image(self.image.image_name)
