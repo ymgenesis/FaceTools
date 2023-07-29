@@ -4,6 +4,8 @@ A nodes extension for use with [InvokeAI](https://github.com/invoke-ai/InvokeAI 
 
 The usual inpainting technique of adding detail/changing faces in Canvas consists of resizing the bounding box around the head, drawing a mask on the face, and generating according to selected settings (denoise strength, steps, scheduler, etc.). As this sort of UI is not currently possible in the Experimental Node Editor, the FaceOff, FaceMask, and FacePlace nodes were created specifically to give you similar functionality through a semi-automated process.
 
+
+
 ## FaceOff
 
 FaceOff mimics a user finding a face in an image and resizing the bounding box around the head in Canvas. Just as you would add more context inside the bounding box by making it larger in Canvas, the node gives you a padding input (in pixels) which will simultanesoly add more context, and increase the resolution of the bounding box so the face remains the same size inside it. The node also allows you to scale the bounding box by a factor to a higher resolution which may result in finer detail.
@@ -33,14 +35,17 @@ FaceOff will output the face in a bounded image, taking the face off of the orig
 
 ## FaceMask
 
-FaceMask mimics a user drawing masks on faces in an image in Canvas. If the detected masks are imperfect and stray too far outside/inside of faces, the node gives you X and Y offsets to shrink/grow the masks by a multiplier. By default, masks are created to protect faces, with only surrounding areas being affected by inpainting (ie. putting the same faces on new bodies). When masks are inverted, they protect surrounding areas, with only the faces being affected by inpainting (ie. putting new faces on the same bodies).
+FaceMask mimics a user drawing masks on faces in an image in Canvas. The "Faces IDs" input allows the user to select specific faces to be masked. Input 0 to detect and mask all faces, a single digit for one face specifically (ex: 1), or a comma-separated list with spaces for a specific combination of faces (ex: 1, 2, 4). Find face IDs with the FaceIdentifier node. The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing. If the detected masks are imperfect and stray too far outside/inside of faces, the node gives you X & Y offsets to shrink/grow the masks by a multiplier. As of now all masks shrink/grow together by the X & Y offset values. By default, masks are created to protect faces, with only surrounding areas being affected by inpainting (ie. putting the same faces on new bodies). When masks are inverted, they protect surrounding areas, with only the faces being affected by inpainting (ie. putting new faces on the same bodies).
+
 
 ###### Inputs/Outputs
 
 | Input | Description |
 | -------- | ------------ |
 | Image | Image for face detection |
+| Faces IDs | 0 for all faces, single digit for one specific, comma-separated list for multiple specific (1, 2, 4). Find face IDs with FaceIdentifier node. |
 | Faces | Maximum number of faces to detect |
+| Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
 | X Offset | X-axis offset of the mask |
 | Y Offset | Y-axis offset of the mask |
 | Invert Mask | Toggle to invert the face mask |
@@ -73,6 +78,27 @@ FacePlace is a simple node that will take in the bounded image from FaceOff (eit
 | Image | The full image with the face placed on |
 | Width | The width of the image in pixels |
 | Height | The height of the image in pixels |
+
+
+
+## FaceIdentifier
+
+FaceIdentifier outputs an image with detected face ID numbers printed in white onto each face (ex: 1, 2, 3, etc.). Face IDs can then be used in FaceMask (and soon FaceOff) to selectively mask all, a specific combination, or single faces. The FaceIdentifier output image is generated for user reference. The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing.
+
+###### Inputs/Outputs
+
+| Input | Description |
+| -------- | ------------ |
+| Image | Image for face detection |
+| Faces | Maximum number of faces to detect |
+| Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
+
+| Output | Description |
+| -------- | ------------ |
+| Image | The original image with small face ID numbers printed in white onto each face for user reference |
+| Width | The width of the original image in pixels |
+| Height | The height of the original image in pixels |
+
 <hr>
 
 # Tips
@@ -85,6 +111,8 @@ FacePlace is a simple node that will take in the bounded image from FaceOff (eit
 - Use lower inpaint strength to resemble aspects of the original face or surroundings. Higher strengths will make something new.
 - mediapipe isn't good at detecting faces with lots of face paint, hair covering the face, etc. Anything that obstructs the face will likely result in no faces being detected
 - If choosing 0 upscaling on FaceOff and upscaling the bounded image with something harsher like RealESRGAN before passing into inpaint, the edges of the bounded image may be noticeable after being placed back on the original image with FacePlace.
+- If you find your face isn't being detected, try lowering the minimum confidence value from 0.5. This could result in false positives, however (random areas being detected as faces and masked).
+- Be sure your "Faces" input corresponds to the amount of faces you want to detect.
 
 <hr>
 
@@ -94,6 +122,8 @@ FacePlace is a simple node that will take in the bounded image from FaceOff (eit
 
 Updated since video recordings:
 - Added "Faces" input field corresponding to the maximum number of faces to detect for the output mask
+- Added the "Face IDs" input field to allow for face selection
+- Added the "Minimum Confidence" input field to adjust the pass/fail threshold for face detection processing 
 
 FaceMask default usage with the inpaint node (July 27, 2023)
 
