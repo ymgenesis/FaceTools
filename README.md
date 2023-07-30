@@ -118,6 +118,12 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 
 # Usage Examples
 
+### FaceIdentifier + FaceMask
+
+FaceIdentifier + FaceMask usage. Finding Face IDs in an image, then specifying specific faces in FaceMask (July 30, 2023)
+
+https://github.com/ymgenesis/FaceTools/assets/25252829/e010d8b1-fb3a-4832-ab79-3694a79dbb0e
+
 ### FaceMask
 
 Updated since video recordings:
