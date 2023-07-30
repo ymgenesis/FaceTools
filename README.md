@@ -86,7 +86,7 @@ FacePlace is a simple node that will take in the bounded image from FaceOff (eit
 
 ## FaceIdentifier
 
-FaceIdentifier outputs an image with detected face ID numbers printed in white onto each face (ex: 1, 2, 3, etc.). Face IDs can then be used in FaceMask (and soon FaceOff) to selectively mask all, a specific combination, or single faces. The FaceIdentifier output image is generated for user reference. The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing.
+FaceIdentifier outputs an image with detected face ID numbers printed in white onto each face (ex: 1, 2, 3, etc.). Face IDs can then be used in FaceMask and FaceOff to selectively mask all, a specific combination, or single faces. The FaceIdentifier output image is generated for user reference. The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing.
 
 ###### Inputs/Outputs
 
