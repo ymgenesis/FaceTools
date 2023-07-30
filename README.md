@@ -122,6 +122,12 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 
 # Usage Examples
 
+### FaceIdentifier + FaceOff
+
+FaceIdentifier + FaceOff usage. Finding Face IDs in an image, then specifying specific faces in FaceOff (July 30, 2023)
+
+https://github.com/ymgenesis/FaceTools/assets/25252829/16de5983-3c79-472f-affd-cd0b1970ced3
+
 ### FaceIdentifier + FaceMask
 
 FaceIdentifier + FaceMask usage. Finding Face IDs in an image, then specifying specific faces in FaceMask (July 30, 2023)
