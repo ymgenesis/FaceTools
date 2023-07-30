@@ -8,7 +8,7 @@ The usual inpainting technique of adding detail/changing faces in Canvas consist
 
 ## FaceOff
 
-FaceOff mimics a user finding a face in an image and resizing the bounding box around the head in Canvas. Just as you would add more context inside the bounding box by making it larger in Canvas, the node gives you a padding input (in pixels) which will simultanesoly add more context, and increase the resolution of the bounding box so the face remains the same size inside it. The node also allows you to scale the bounding box by a factor to a higher resolution which may result in finer detail.
+FaceOff mimics a user finding a face in an image and resizing the bounding box around the head in Canvas. Just as you would add more context inside the bounding box by making it larger in Canvas, the node gives you a padding input (in pixels) which will simultanesoly add more context, and increase the resolution of the bounding box so the face remains the same size inside it. The node also allows you to scale the bounding box by a factor to a higher resolution which may result in finer detail. Either enter a specific face ID (found with FaceIdentifier), or 0 to mask the first detected image (if there's only one face in an image). The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing.
 
 FaceOff will output the face in a bounded image, taking the face off of the original image for input into any node that accepts image inputs. The node also outputs a face mask with the dimensions of the bounded image. The X & Y outputs are for connecting to the X & Y inputs of FacePlace, which will place the bounded image back on the original image using these coordinates.
 
@@ -17,6 +17,9 @@ FaceOff will output the face in a bounded image, taking the face off of the orig
 | Input | Description |
 | -------- | ------------ |
 | Image | Image for face detection |
+| Faces IDs | 0 for first detected face, single digit for one specific. Multiple faces not supported. Find a face's ID with FaceIdentifier node. |
+| Faces | Maximum number of faces to detect |
+| Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
 | X Offset | X-axis offset of the mask |
 | Y Offset | Y-axis offset of the mask |
 | Padding | All-axis padding around the mask in pixels |
@@ -113,6 +116,7 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 - If choosing 0 upscaling on FaceOff and upscaling the bounded image with something harsher like RealESRGAN before passing into inpaint, the edges of the bounded image may be noticeable after being placed back on the original image with FacePlace.
 - If you find your face isn't being detected, try lowering the minimum confidence value from 0.5. This could result in false positives, however (random areas being detected as faces and masked).
 - Be sure your "Faces" input corresponds to the amount of faces you want to detect.
+- After altering an image and wanting to process a different face in the newly altered image, run the altered image through FaceIdentifier again to see the new Face IDs. MediaPipe will detect faces in a different order after other faces have changed.
 
 <hr>
 
