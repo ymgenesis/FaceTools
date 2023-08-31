@@ -1,52 +1,25 @@
-## FacePlace 1.0
+## FacePlace 1.8
 ## A node for InvokeAI, written by YMGenesis/Matthew Janik
 
-from typing import Literal, Optional
 from PIL import Image
-from pydantic import BaseModel, Field
-import cv2
-from invokeai.app.invocations.image import ImageOutput
-from invokeai.app.models.image import ImageCategory, ImageField, ResourceOrigin
+from invokeai.app.models.image import (ImageCategory, ResourceOrigin)
+from invokeai.app.invocations.primitives import ImageField, ImageOutput
 from invokeai.app.invocations.baseinvocation import (
     BaseInvocation,
-    BaseInvocationOutput,
     InvocationContext,
-    InvocationConfig,
-)
+    InputField,
+    invocation)
 
 
-class PILInvocationConfig(BaseModel):
-    """Helper class to provide all PIL invocations with additional config"""
-
-    class Config(InvocationConfig):
-        schema_extra = {
-            "ui": {
-                "tags": ["PIL", "image"],
-            },
-        }
-
-
-class FacePlaceInvocation(BaseInvocation, PILInvocationConfig):
+@invocation("face_place", title="FacePlace", tags=["image", "face", "place"], category="image")
+class FacePlaceInvocation(BaseInvocation):
     """FacePlace node to place the a bounded face from FaceOff back onto the original image"""
 
-    # fmt: off
-    type: Literal["face_place"] = "face_place"
-
-    # Inputs
-    bounded_image:   ImageField = Field(default=None, description="The bounded image to be placed on the original image")
-    original_image:    ImageField = Field(default=None, description="The original image to place the bounded image on")
-    downscale_factor:  int = Field(default=2, description="Factor to downscale the bounded image before placing")
-    x:                 int = Field(default=0, description="The x coordinate (top left corner) to place on the original image")
-    y:                 int = Field(default=0, description="The y coordinate (top left corner) to place on the original image")
-    # fmt: on
-
-    class Config(InvocationConfig):
-        schema_extra = {
-            "ui": {
-                "title": "FacePlace",
-                "tags": ["image", "face", "place"],
-            },
-        }
+    bounded_image:   ImageField = InputField(default=None, description="The bounded image to be placed on the original image")
+    original_image:    ImageField = InputField(default=None, description="The original image to place the bounded image on")
+    downscale_factor:  int = InputField(default=2, description="Factor to downscale the bounded image before placing")
+    x:                 int = InputField(default=0, description="The x coordinate (top left corner) to place on the original image")
+    y:                 int = InputField(default=0, description="The y coordinate (top left corner) to place on the original image")
 
     def create_alpha_mask(self, image):
         # Check the image mode to determine if it has an alpha channel.
@@ -54,7 +27,6 @@ class FacePlaceInvocation(BaseInvocation, PILInvocationConfig):
             try:
                 alpha = image.getchannel("A")  # Get the alpha channel (assuming RGBA image)
             except ValueError:
-                context.services.logger.warning('The image has no alpha channel (A).')
                 raise ValueError("The image has no alpha channel (A).")
         else:
             # If the image is not in RGBA mode (e.g., RGB mode), create a mask of all opaque (white).
@@ -99,6 +71,7 @@ class FacePlaceInvocation(BaseInvocation, PILInvocationConfig):
             node_id=self.id,
             session_id=context.graph_execution_state_id,
             is_intermediate=self.is_intermediate,
+            workflow=self.workflow,            
         )
 
         return ImageOutput(

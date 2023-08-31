@@ -17,7 +17,7 @@ FaceOff will output the face in a bounded image, taking the face off of the orig
 | Input | Description |
 | -------- | ------------ |
 | Image | Image for face detection |
-| Faces IDs | 0 for first detected face, single digit for one specific. Multiple faces not supported. Find a face's ID with FaceIdentifier node. |
+| Faces ID | 0 for first detected face, single digit for one specific. Multiple faces not supported. Find a face's ID with FaceIdentifier node. |
 | Faces | Maximum number of faces to detect |
 | Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
 | X Offset | X-axis offset of the mask |
@@ -46,7 +46,7 @@ FaceMask mimics a user drawing masks on faces in an image in Canvas. The "Faces 
 | Input | Description |
 | -------- | ------------ |
 | Image | Image for face detection |
-| Faces IDs | 0 for all faces, single digit for one specific, comma-separated list for multiple specific (1, 2, 4). Find face IDs with FaceIdentifier node. |
+| Faces IDs | 0 for all faces, single digit for one specific, comma-separated list with spaces for multiple specific (1, 2, 4). Find face IDs with FaceIdentifier node. |
 | Faces | Maximum number of faces to detect |
 | Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
 | X Offset | X-axis offset of the mask |
@@ -106,14 +106,14 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 
 # Tips
 
+- For faceoff, use the color correction node before faceplace to correct edges being noticeable in the final image (see example screenshot).
 - Non-inpainting models may struggle to paint/generate correctly around faces
-- If you're getting lines or dots around the face, increase the seam/edge size. Higher numbers should take them away. Higher bounding box resolutions may increase the chance to get white lines or dots, and a higher seam/edge size may be necessary. These artefacts are the result of white areas of the mask making their way into the black areas.
+- If your face won't change the way you want it to no matter what you change, consider that the change you're trying to make is too much at that resolution. For example, if an image is only 512x768 total, the face might only be 128x128 or 256x256, much smaller than the 512x512 your SD1.5 model was probably trained on. Try increasing the resolution of the image by upscaling or resizing, add padding to increase the bounding box's resolution, or use an image where the face takes up more pixels.
 - If the resulting face seems out of place pasted back on the original image (ie. too large, not proportional), add more padding on the FaceOff node to give inpainting more context. Context and good prompting are important to keeping things proportional.
 - If you find the mask is too big/small and going too far outside/inside the area you want to affect, adjust the x & y offsets to shrink/grow the mask area
 - Make sure to match the scaling factors between the two nodes (unless introducing other upscaling/downscaling prior to FacePlace, in which case some math is necessary). If upscaling the original image between FaceOff and FacePlace to avoid downscaling the bounded image before placement, the X & Y coordinate outputs from FaceOff have to be multiplied with Multiply nodes by the same upscale factor you upscaled the original image by in between.
-- Use lower inpaint strength to resemble aspects of the original face or surroundings. Higher strengths will make something new.
+- Use a higher denoise start value to resemble aspects of the original face or surroundings. Denoise start = 0 & denoise end = 1 will make something new.
 - mediapipe isn't good at detecting faces with lots of face paint, hair covering the face, etc. Anything that obstructs the face will likely result in no faces being detected
-- If choosing 0 upscaling on FaceOff and upscaling the bounded image with something harsher like RealESRGAN before passing into inpaint, the edges of the bounded image may be noticeable after being placed back on the original image with FacePlace.
 - If you find your face isn't being detected, try lowering the minimum confidence value from 0.5. This could result in false positives, however (random areas being detected as faces and masked).
 - Be sure your "Faces" input corresponds to the amount of faces you want to detect.
 - After altering an image and wanting to process a different face in the newly altered image, run the altered image through FaceIdentifier again to see the new Face IDs. MediaPipe will detect faces in a different order after other faces have changed.
@@ -121,6 +121,14 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 <hr>
 
 # Usage Examples
+
+## Screenshots
+
+screenshots here
+
+## Videos
+
+Videos are now outdated. InvokeAI no longer has a single inpaint node. It's now broken down like other regular latents processing. Node usage is roughly the same.
 
 ### FaceIdentifier + FaceOff
 
@@ -134,12 +142,9 @@ FaceIdentifier + FaceMask usage. Finding Face IDs in an image, then specifying s
 
 https://github.com/ymgenesis/FaceTools/assets/25252829/e010d8b1-fb3a-4832-ab79-3694a79dbb0e
 
-### FaceMask
+<hr>
 
-Updated since video recordings:
-- Added "Faces" input field corresponding to the maximum number of faces to detect for the output mask
-- Added the "Face IDs" input field to allow for face selection
-- Added the "Minimum Confidence" input field to adjust the pass/fail threshold for face detection processing 
+### FaceMask
 
 FaceMask default usage with the inpaint node (July 27, 2023)
 
