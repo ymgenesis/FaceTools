@@ -9,7 +9,7 @@ The usual inpainting technique of adding detail/changing faces in Canvas consist
 To install, place the `.py` files into your InvokeAI invocations folder located here:
 
 Windows - `invokeai\.venv\Lib\site-packages\invokeai\app\invocations\`
-<br>Mac - `invokeai/.venv/lib/python3.10/site-packages/invokeai/app/invocations/`
+<br>Mac/Linux - `invokeai/.venv/lib/python3.10/site-packages/invokeai/app/invocations/`
 
 
 
