@@ -4,6 +4,13 @@ A nodes extension for use with [InvokeAI](https://github.com/invoke-ai/InvokeAI 
 
 The usual inpainting technique of adding detail/changing faces in Canvas consists of resizing the bounding box around the head, drawing a mask on the face, and generating according to selected settings (denoise strength, steps, scheduler, etc.). As this sort of UI is not currently possible in the Experimental Node Editor, the FaceOff, FaceMask, and FacePlace nodes were created specifically to give you similar functionality through a semi-automated process.
 
+## Installation
+
+To install, place the `.py` files into your InvokeAI invocations folder located here:
+
+Windows - `invokeai\.venv\Lib\site-packages\invokeai\app\invocations\`
+<br>Mac - `invokeai/.venv/lib/python3.10/site-packages/invokeai/app/invocations/`
+
 
 
 ## FaceOff
