@@ -112,7 +112,7 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 - If the resulting face seems out of place pasted back on the original image (ie. too large, not proportional), add more padding on the FaceOff node to give inpainting more context. Context and good prompting are important to keeping things proportional.
 - If you find the mask is too big/small and going too far outside/inside the area you want to affect, adjust the x & y offsets to shrink/grow the mask area
 - Make sure to match the scaling factors between the two nodes (unless introducing other upscaling/downscaling prior to FacePlace, in which case some math is necessary). If upscaling the original image between FaceOff and FacePlace to avoid downscaling the bounded image before placement, the X & Y coordinate outputs from FaceOff have to be multiplied with Multiply nodes by the same upscale factor you upscaled the original image by in between.
-- Use a higher denoise start value to resemble aspects of the original face or surroundings. Denoise start = 0 & denoise end = 1 will make something new.
+- Use a higher denoise start value to resemble aspects of the original face or surroundings. Denoise start = 0 & denoise end = 1 will make something new, while denoise start = 0.50 & denoise end = 1 will be 50% old and 50% new.
 - mediapipe isn't good at detecting faces with lots of face paint, hair covering the face, etc. Anything that obstructs the face will likely result in no faces being detected
 - If you find your face isn't being detected, try lowering the minimum confidence value from 0.5. This could result in false positives, however (random areas being detected as faces and masked).
 - Be sure your "Faces" input corresponds to the amount of faces you want to detect.
@@ -124,11 +124,23 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 
 ## Screenshots
 
-screenshots here
+FaceIdentifier (August 31, 2023)
+
+![faceidentifier](https://github.com/ymgenesis/FaceTools/assets/25252829/465fa625-5ef9-4c10-8f40-2a921c1bae2f)
+![faceidentifierresult](https://github.com/ymgenesis/FaceTools/assets/25252829/3bafa89c-af37-4f95-b476-f3b4ac2e422e)
+
+FaceOff + FacePlace (August 31, 2023)
+
+![faceofffaceplace](https://github.com/ymgenesis/FaceTools/assets/25252829/a6a40717-f8f9-4a43-9127-3b743b8bd819)
+
+FaceMask (August 31, 2023)
+
+![facemaskgraph](https://github.com/ymgenesis/FaceTools/assets/25252829/ef4a9324-6633-4c3c-a4a1-856c5e4aedaa)
+
 
 ## Videos
 
-Videos are now outdated. InvokeAI no longer has a single inpaint node. It's now broken down like other regular latents processing. Node usage is roughly the same.
+These videos are partially outdated. InvokeAI no longer has a single inpaint node. It's now broken down like other regular latents processing. Node usage is roughly the same. See above usage screenshots.
 
 ### FaceIdentifier + FaceOff
 
