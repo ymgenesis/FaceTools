@@ -31,7 +31,7 @@ class FaceMaskOutput(BaseInvocationOutput):
 class FaceMaskInvocation(BaseInvocation):
     """Face mask creation using mediapipe face detection"""
 
-    image:                ImageField  = InputField(default=None, description="Image to face detect")
+    image:                ImageField  = InputField(description="Image to face detect")
     face_ids:             str = InputField(default="0", description="0 for all faces, single digit for one, comma-separated list for multiple specific (1, 2, 4). Find face IDs with FaceIdentifier node.")
     faces:                int = InputField(default=4, description="Maximum number of faces to detect")
     minimum_confidence:   float = InputField(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")

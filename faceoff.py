@@ -33,7 +33,7 @@ class FaceOffOutput(BaseInvocationOutput):
 class FaceOffInvocation(BaseInvocation):
     """bound, extract, and mask a face from an image using MediaPipe detection"""
 
-    image:               ImageField  = InputField(default=None, description="Image for face detection")
+    image:               ImageField  = InputField(description="Image for face detection")
     face_id:             int = InputField(default=0, description="0 for first detected face, single digit for one specific. Multiple faces not supported. Find a face's ID with FaceIdentifier node.")
     faces:               int = InputField(default=4, description="Maximum number of faces to detect")
     minimum_confidence:  float = InputField(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")
