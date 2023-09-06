@@ -1,4 +1,4 @@
-## FaceOff 3.6
+## FaceOff 3.7
 ## A node for InvokeAI, written by YMGenesis/Matthew Janik
 
 import numpy as np
@@ -63,7 +63,7 @@ class FaceOffInvocation(BaseInvocation):
 
         # Check if any face is detected.
         if results.multi_face_landmarks:
-            face_id_counter = 1  # Start face ID counter from 1
+            face_id_counter = 1  # Start face ID counter from 1 (TBD: See how this works for split-up images)
             # If face_id is higher than faces to detect
             if self.face_id > self.faces:
                 raise ValueError("Requested Face ID is higher than maximum faces to detect. Increase the Faces input value.")
@@ -120,13 +120,70 @@ class FaceOffInvocation(BaseInvocation):
             return mask_pil, x_center, y_center, mesh_width, mesh_height
 
         else:
+            print("No face detected!")
             raise ValueError("No face detected in the input image.")
 
-    def invoke(self, context: InvocationContext) -> FaceOffOutput:
+    def faceoff(self, context: InvocationContext) -> FaceOffOutput:
         image = context.services.images.get_pil_image(self.image.image_name)
+        x_chunk_off = 0
+        y_chunk_off = 0
 
         # Generate the face box mask and get the center of the face.
-        mask_pil, center_x, center_y, mesh_width, mesh_height = self.generate_face_box_mask(image)
+        try:
+            mask_pil, center_x, center_y, mesh_width, mesh_height = self.generate_face_box_mask(image)
+        except ValueError:
+            print("Chunking image")
+            width, height = image.size
+            image_chunks = []
+            x_offsets = []
+            y_offsets = []
+
+            if width == height:
+                # We cannot better handle a case where the image is square
+                raise
+            elif width > height:
+                # Landscape - slice the image horizontally
+                fx = 0.0
+                steps = int(width * 2 / height)
+                while fx <= (width - height):
+                    x = int(fx)
+                    image_chunks.append(image.crop((x, 0, x + height - 1, height - 1)))
+                    x_offsets.append(x)
+                    y_offsets.append(0)
+                    fx += (width - height) / steps
+                    print(f"Chunk starting at x = {x}")
+            elif height > width:
+                # Portrait - slice the image vertically
+                fy = 0.0
+                steps = int(height * 2 / width)
+                while fy <= (height - width):
+                    y = int(fy)
+                    image_chunks.append(image.crop((0, y, width - 1, y + width - 1)))
+                    x_offsets.append(0)
+                    y_offsets.append(y)
+                    fy += (height - width) / steps
+                    print(f"Chunk starting at y = {y}")
+
+            found = False
+
+            for idx in range(len(image_chunks)):
+                try:
+                    print(f"Trying chunk {idx}")
+                    chunk = image_chunks[idx]
+                    mask_pil, center_x, center_y, mesh_width, mesh_height = self.generate_face_box_mask(chunk)
+                    image = chunk
+                    x_chunk_off = x_offsets[idx]
+                    y_chunk_off = y_offsets[idx]
+                    found = True
+                    break
+                except ValueError:
+                    # Nothing found, so keep going.
+                    pass
+
+            if found is False:
+                # Give up
+                print(f"No face detected in chunked input image. Passing through original image. Resizing by a factor of {self.scale_factor}...")
+                raise
 
         # Determine the minimum size of the square crop
         min_size = min(mask_pil.width, mask_pil.height)
@@ -222,6 +279,45 @@ class FaceOffInvocation(BaseInvocation):
             width=bounded_image_dto.width,
             height=bounded_image_dto.height,
             mask=ImageField(image_name=mask_dto.image_name),
-            x=x_min,
-            y=y_min,
+            x=x_min + x_chunk_off,
+            y=y_min + y_chunk_off,
         )
+
+    def invoke(self, context: InvocationContext) -> FaceOffOutput:
+        try:
+            return self.faceoff(context)
+        except:
+            image = context.services.images.get_pil_image(self.image.image_name)
+            whitemask = Image.new("L", image.size, color=255)
+
+            if self.scale_factor > 0:
+                new_size = (image.width * self.scale_factor, image.height * self.scale_factor)
+                image = image.resize(new_size, resample=Image.LANCZOS)
+                whitemask = whitemask.resize(new_size, resample=Image.LANCZOS)
+
+            image_dto = context.services.images.create(
+                image=image,
+                image_origin=ResourceOrigin.INTERNAL,
+                image_category=ImageCategory.GENERAL,
+                node_id=self.id,
+                session_id=context.graph_execution_state_id,
+                is_intermediate=self.is_intermediate,
+                workflow=self.workflow,
+            )
+            mask_dto = context.services.images.create(
+                image=whitemask,
+                image_origin=ResourceOrigin.INTERNAL,
+                image_category=ImageCategory.MASK,
+                node_id=self.id,
+                session_id=context.graph_execution_state_id,
+                is_intermediate=self.is_intermediate,
+            )
+
+            return FaceOffOutput(
+                bounded_image=ImageField(image_name=image_dto.image_name),
+                width=image_dto.width,
+                height=image_dto.height,
+                mask=ImageField(image_name=mask_dto.image_name),
+                x=0,
+                y=0,
+            )
