@@ -72,7 +72,7 @@ class FaceOffInvocation(BaseInvocation):
     padding:             int = InputField(default=0, description="All-axis padding around the mask in pixels")
     scale_factor:        int = InputField(default=2, description="Factor to scale the bounding box by before outputting")
 
-    def generate_face_box_mask(self, pil_image, x_offset=0, y_offset=0):
+    def generate_face_box_mask(self, pil_image, chunk_x_offset=0, chunk_y_offset=0):
         result = []
 
         # Convert the PIL image to a NumPy array.
@@ -129,13 +129,16 @@ class FaceOffInvocation(BaseInvocation):
                 cv2.fillConvexPoly(mask_image, convex_hull, 0)
 
                 # Convert the binary mask image to a PIL Image.
-                mask_pil = Image.fromarray(mask_image, mode='L')
+                init_mask_pil = Image.fromarray(mask_image, mode='L')
+                w, h = init_mask_pil.size
+                mask_pil = Image.new(mode='L', size=(w + chunk_x_offset, h + chunk_y_offset), color=255)
+                mask_pil.paste(init_mask_pil, (chunk_x_offset, chunk_y_offset))
 
                 this_face = dict()
                 this_face["pil_image"] = pil_image
                 this_face["mask_pil"] = mask_pil
-                this_face["x_center"] = x_center + x_offset
-                this_face["y_center"] = y_center + y_offset
+                this_face["x_center"] = x_center + chunk_x_offset
+                this_face["y_center"] = y_center + chunk_y_offset
                 this_face["mesh_width"] = mesh_width
                 this_face["mesh_height"] = mesh_height
                 result.append(this_face)
@@ -144,8 +147,6 @@ class FaceOffInvocation(BaseInvocation):
 
     def faceoff(self, context: InvocationContext) -> FaceOffOutput:
         image = context.services.images.get_pil_image(self.image.image_name)
-        x_chunk_off = 0
-        y_chunk_off = 0
 
         # Generate the face box mask and get the center of the face.
         result = self.generate_face_box_mask(image)
@@ -200,7 +201,6 @@ class FaceOffInvocation(BaseInvocation):
         if face_id > len(result) or face_id < 0:
             raise ValueError("Selected face ID is outside of the number of faces detected.")
 
-        image = result[face_id]["pil_image"]
         mask_pil = result[face_id]["mask_pil"]
         center_x = result[face_id]["x_center"]
         center_y = result[face_id]["y_center"]
@@ -301,8 +301,8 @@ class FaceOffInvocation(BaseInvocation):
             width=bounded_image_dto.width,
             height=bounded_image_dto.height,
             mask=ImageField(image_name=mask_dto.image_name),
-            x=x_min + x_chunk_off,
-            y=y_min + y_chunk_off,
+            x=x_min,
+            y=y_min,
         )
 
     def invoke(self, context: InvocationContext) -> FaceOffOutput:
@@ -343,4 +343,3 @@ class FaceOffInvocation(BaseInvocation):
                 x=0,
                 y=0,
             )
-            
