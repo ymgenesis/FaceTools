@@ -45,6 +45,13 @@ def cleanup_faces_list(orig):
 
     newlist = sorted(newlist, key=lambda x: x['y_center'])
     newlist = sorted(newlist, key=lambda x: x['x_center'])
+    
+    # add a face_id for reference
+    face_id_counter = 1
+    for face in newlist:
+        face["face_id"] = face_id_counter
+        face_id_counter += 1
+
     return newlist
 
 @invocation_output("face_off_output")
@@ -59,7 +66,7 @@ class FaceOffOutput(BaseInvocationOutput):
     y:                 int = OutputField(description="The y coordinate of the bounding box's top side")
 
 
-@invocation("face_off", title="FaceOff", tags=["image", "faceoff", "face", "mask"], category="image")
+@invocation("face_off", title="FaceOff", tags=["image", "faceoff", "face", "mask"], category="image", version="1.0.0")
 class FaceOffInvocation(BaseInvocation):
     """bound, extract, and mask a face from an image using MediaPipe detection"""
 
@@ -70,7 +77,6 @@ class FaceOffInvocation(BaseInvocation):
     x_offset:            float = InputField(default=0.0, description="X-axis offset of the mask")
     y_offset:            float = InputField(default=0.0, description="Y-axis offset of the mask")
     padding:             int = InputField(default=0, description="All-axis padding around the mask in pixels")
-    scale_factor:        int = InputField(default=2, description="Factor to scale the bounding box by before outputting")
 
     def generate_face_box_mask(self, pil_image, chunk_x_offset=0, chunk_y_offset=0):
         result = []
@@ -183,15 +189,13 @@ class FaceOffInvocation(BaseInvocation):
                     fy += (height - width) / steps
                     print(f"Chunk starting at y = {y}")
 
-            found = False
-
             for idx in range(len(image_chunks)):
                 print(f"Trying chunk {idx}")
                 result = result + self.generate_face_box_mask(image_chunks[idx], x_offsets[idx], y_offsets[idx])
 
             if len(result) == 0:
                 # Give up
-                print(f"No face detected in chunked input image. Passing through original image. Resizing by a factor of {self.scale_factor}...")
+                print(f"No face detected in chunked input image. Passing through original image.")
                 raise ValueError("No face detected in input image.")
 
         result = cleanup_faces_list(result)
@@ -256,24 +260,10 @@ class FaceOffInvocation(BaseInvocation):
             y_max += diff - diff // 2
 
         context.services.logger.info(f'FaceOff --> Calculated bounding box (8 multiple): {crop_size}')
-        context.services.logger.info(f'FaceOff --> Scale factor: {self.scale_factor}')
-        if self.scale_factor == 0:
-            context.services.logger.info(f'FaceOff --> Scaled bounding box: {crop_size}')
-        else:
-            context.services.logger.info(f'FaceOff --> Scaled bounding box: {crop_size * self.scale_factor}')
 
         # Crop the output image to the specified size with the center of the face mesh as the center.
         mask_pil = mask_pil.crop((x_min, y_min, x_max, y_max))
         bounded_image = image.crop((x_min, y_min, x_max, y_max))
-
-        # Resize images by a factor.
-        if self.scale_factor > 0:
-            new_size = (mask_pil.width * self.scale_factor, mask_pil.height * self.scale_factor)
-            mask_pil = mask_pil.resize(new_size)
-            mask_pil = mask_pil.filter(ImageFilter.GaussianBlur(radius=2))
-            bounded_image_np = np.array(bounded_image)
-            bounded_image_np = cv2.resize(bounded_image_np, new_size, interpolation=cv2.INTER_LANCZOS4)
-            bounded_image = Image.fromarray(bounded_image_np)
 
         # Convert the input image to RGBA mode to ensure it has an alpha channel.
         bounded_image = bounded_image.convert("RGBA")
@@ -311,11 +301,7 @@ class FaceOffInvocation(BaseInvocation):
         except:
             image = context.services.images.get_pil_image(self.image.image_name)
             whitemask = Image.new("L", image.size, color=255)
-
-            if self.scale_factor > 0:
-                new_size = (image.width * self.scale_factor, image.height * self.scale_factor)
-                image = image.resize(new_size, resample=Image.LANCZOS)
-                whitemask = whitemask.resize(new_size, resample=Image.LANCZOS)
+            print("No face detected. Passing through original image.")
                                           
             image_dto = context.services.images.create(
                 image=image,
