@@ -79,7 +79,7 @@ class FaceOffInvocation(BaseInvocation):
     padding:             int = InputField(default=0, description="All-axis padding around the mask in pixels")
     chunk:               bool = InputField(default=False, description="Whether to bypass full image face detection and default to image chunking. Chunking will occur if no faces are found in the full image.")
 
-    def generate_face_box_mask(self, pil_image, chunk_x_offset=0, chunk_y_offset=0):
+    def generate_face_box_mask(self, context: InvocationContext, pil_image, chunk_x_offset=0, chunk_y_offset=0):
         result = []
 
         # Convert the PIL image to a NumPy array.
@@ -141,14 +141,25 @@ class FaceOffInvocation(BaseInvocation):
                 mask_pil = Image.new(mode='L', size=(w + chunk_x_offset, h + chunk_y_offset), color=255)
                 mask_pil.paste(init_mask_pil, (chunk_x_offset, chunk_y_offset))
 
-                this_face = dict()
-                this_face["pil_image"] = pil_image
-                this_face["mask_pil"] = mask_pil
-                this_face["x_center"] = x_center + chunk_x_offset
-                this_face["y_center"] = y_center + chunk_y_offset
-                this_face["mesh_width"] = mesh_width
-                this_face["mesh_height"] = mesh_height
-                result.append(this_face)
+                left_side = x_center - mesh_width
+                right_side = x_center + mesh_width
+                top_side = y_center - mesh_height
+                bottom_side = y_center + mesh_height
+                im_width, im_height = pil_image.size
+                over_w = im_width * 0.1
+                over_h = im_height * 0.1
+                context.services.logger.info(f'FaceOff --> {im_width} {im_height} - {left_side} {top_side} {bottom_side} {right_side}')
+                if (left_side >= -over_w) and (right_side < im_width + over_w) and (top_side >= -over_h) and (bottom_side < im_height + over_h):
+                    this_face = dict()
+                    this_face["pil_image"] = pil_image
+                    this_face["mask_pil"] = mask_pil
+                    this_face["x_center"] = x_center + chunk_x_offset
+                    this_face["y_center"] = y_center + chunk_y_offset
+                    this_face["mesh_width"] = mesh_width
+                    this_face["mesh_height"] = mesh_height
+                    result.append(this_face)
+                else:
+                    context.services.logger.info(f'FaceOff --> Face out of bounds, ignoring.')
 
         return result
 
@@ -158,7 +169,7 @@ class FaceOffInvocation(BaseInvocation):
         # Generate the face box mask and get the center of the face.
         if self.chunk == False:
             context.services.logger.info(f'FaceOff --> Attempting full image face detection.')
-            result = self.generate_face_box_mask(image)
+            result = self.generate_face_box_mask(context, image)
         if self.chunk == True or len(result) == 0:
             context.services.logger.info(f'FaceOff --> Chunking image (chunk toggled on, or no face found in full image).')
             width, height = image.size
@@ -195,7 +206,7 @@ class FaceOffInvocation(BaseInvocation):
 
             for idx in range(len(image_chunks)):
                 context.services.logger.info(f'FaceOff --> Evaluating faces in chunk {idx}')
-                result = result + self.generate_face_box_mask(image_chunks[idx], x_offsets[idx], y_offsets[idx])
+                result = result + self.generate_face_box_mask(context, image_chunks[idx], x_offsets[idx], y_offsets[idx])
 
             if len(result) == 0:
                 # Give up
