@@ -81,7 +81,7 @@ class FaceOffInvocation(BaseInvocation):
 
     def generate_face_box_mask(self, pil_image, chunk_x_offset=0, chunk_y_offset=0):
         result = []
-        
+
         # Convert the PIL image to a NumPy array.
         np_image = np.array(pil_image, dtype=np.uint8)
 
