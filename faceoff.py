@@ -77,10 +77,11 @@ class FaceOffInvocation(BaseInvocation):
     x_offset:            float = InputField(default=0.0, description="X-axis offset of the mask")
     y_offset:            float = InputField(default=0.0, description="Y-axis offset of the mask")
     padding:             int = InputField(default=0, description="All-axis padding around the mask in pixels")
+    chunk:               bool = InputField(default=False, description="Whether to bypass full image face detection and default to image chunking. Chunking will occur if no faces are found in the full image.")
 
     def generate_face_box_mask(self, pil_image, chunk_x_offset=0, chunk_y_offset=0):
         result = []
-
+        
         # Convert the PIL image to a NumPy array.
         np_image = np.array(pil_image, dtype=np.uint8)
 
@@ -155,13 +156,16 @@ class FaceOffInvocation(BaseInvocation):
         image = context.services.images.get_pil_image(self.image.image_name)
 
         # Generate the face box mask and get the center of the face.
-        result = self.generate_face_box_mask(image)
-        if len(result) == 0:
-            context.services.logger.info(f'FaceOff --> No faces detected using full image. Chunking image.')
+        if self.chunk == False:
+            context.services.logger.info(f'FaceOff --> Attempting full image face detection.')
+            result = self.generate_face_box_mask(image)
+        if self.chunk == True or len(result) == 0:
+            context.services.logger.info(f'FaceOff --> Chunking image (chunk toggled on, or no face found in full image).')
             width, height = image.size
             image_chunks = []
             x_offsets = []
             y_offsets = []
+            result = []
 
             if width == height:
                 # We cannot better handle a case where the image is square
@@ -202,8 +206,8 @@ class FaceOffInvocation(BaseInvocation):
 
         face_id = self.face_id - 1 if self.face_id > 0 else self.face_id
 
-        if face_id > len(result) or face_id < 0:
-            context.services.logger.warning(f'FaceOff --> Selected face ID is outside of the number of faces detected. Passing through original image.')
+        if face_id + 1 > len(result) or face_id < 0:
+            context.services.logger.warning(f'FaceOff --> Face ID {self.face_id} is outside of the number of faces detected ({len(result)}). Passing through original image.')
             return None
 
         mask_pil = result[face_id]["mask_pil"]
