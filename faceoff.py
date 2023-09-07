@@ -72,7 +72,7 @@ class FaceOffInvocation(BaseInvocation):
 
     image:               ImageField  = InputField(description="Image for face detection")
     face_id:             int = InputField(default=0, description="0 for first detected face, single digit for one specific. Multiple faces not supported. Find a face's ID with FaceIdentifier node.")
-    faces:               int = InputField(default=99, description="Maximum number of faces to detect")
+    faces:               int = InputField(default=10, description="Maximum number of faces to detect")
     minimum_confidence:  float = InputField(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")
     x_offset:            float = InputField(default=0.0, description="X-axis offset of the mask")
     y_offset:            float = InputField(default=0.0, description="Y-axis offset of the mask")
@@ -157,7 +157,7 @@ class FaceOffInvocation(BaseInvocation):
         # Generate the face box mask and get the center of the face.
         result = self.generate_face_box_mask(image)
         if len(result) == 0:
-            print("Chunking image")
+            context.services.logger.info(f'FaceOff --> No faces detected using full image. Chunking image.')
             width, height = image.size
             image_chunks = []
             x_offsets = []
@@ -176,7 +176,7 @@ class FaceOffInvocation(BaseInvocation):
                     x_offsets.append(x)
                     y_offsets.append(0)
                     fx += (width - height) / steps
-                    print(f"Chunk starting at x = {x}")
+                    context.services.logger.info(f'FaceOff --> Chunk starting at x = {x}')
             elif height > width:
                 # Portrait - slice the image vertically
                 fy = 0.0
@@ -187,23 +187,24 @@ class FaceOffInvocation(BaseInvocation):
                     x_offsets.append(0)
                     y_offsets.append(y)
                     fy += (height - width) / steps
-                    print(f"Chunk starting at y = {y}")
+                    context.services.logger.info(f'FaceOff --> Chunk starting at y = {y}')
 
             for idx in range(len(image_chunks)):
-                print(f"Trying chunk {idx}")
+                context.services.logger.info(f'FaceOff --> Evaluating faces in chunk {idx}')
                 result = result + self.generate_face_box_mask(image_chunks[idx], x_offsets[idx], y_offsets[idx])
 
             if len(result) == 0:
                 # Give up
-                print(f"No face detected in chunked input image. Passing through original image.")
-                raise ValueError("No face detected in input image.")
+                context.services.logger.warning(f'FaceOff --> No face detected in chunked input image. Passing through original image.')
+                return None
 
         result = cleanup_faces_list(result)
 
         face_id = self.face_id - 1 if self.face_id > 0 else self.face_id
 
         if face_id > len(result) or face_id < 0:
-            raise ValueError("Selected face ID is outside of the number of faces detected.")
+            context.services.logger.warning(f'FaceOff --> Selected face ID is outside of the number of faces detected. Passing through original image.')
+            return None
 
         mask_pil = result[face_id]["mask_pil"]
         center_x = result[face_id]["x_center"]
@@ -296,12 +297,12 @@ class FaceOffInvocation(BaseInvocation):
         )
 
     def invoke(self, context: InvocationContext) -> FaceOffOutput:
-        try:
-            return self.faceoff(context)
-        except:
+        result = self.faceoff(context)
+
+        if result is None:
             image = context.services.images.get_pil_image(self.image.image_name)
             whitemask = Image.new("L", image.size, color=255)
-            print("No face detected. Passing through original image.")
+            context.services.logger.info(f'FaceOff --> No face detected. Passing through original image.')
                                           
             image_dto = context.services.images.create(
                 image=image,
@@ -321,7 +322,7 @@ class FaceOffInvocation(BaseInvocation):
                 is_intermediate=self.is_intermediate,
             )
 
-            return FaceOffOutput(
+            result = FaceOffOutput(
                 bounded_image=ImageField(image_name=image_dto.image_name),
                 width=image_dto.width,
                 height=image_dto.height,
@@ -329,3 +330,5 @@ class FaceOffInvocation(BaseInvocation):
                 x=0,
                 y=0,
             )
+
+        return result
