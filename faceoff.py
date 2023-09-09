@@ -300,6 +300,7 @@ class FaceOffInvocation(BaseInvocation):
             is_intermediate=self.is_intermediate,
             workflow=self.workflow,
         )
+
         mask_dto = context.services.images.create(
             image=mask_pil,
             image_origin=ResourceOrigin.INTERNAL,
@@ -325,7 +326,7 @@ class FaceOffInvocation(BaseInvocation):
             image = context.services.images.get_pil_image(self.image.image_name)
             whitemask = Image.new("L", image.size, color=255)
             context.services.logger.info(f'FaceOff --> No face detected. Passing through original image.')
-                                          
+
             image_dto = context.services.images.create(
                 image=image,
                 image_origin=ResourceOrigin.INTERNAL,
@@ -335,6 +336,7 @@ class FaceOffInvocation(BaseInvocation):
                 is_intermediate=self.is_intermediate,
                 workflow=self.workflow,
             )
+
             mask_dto = context.services.images.create(
                 image=whitemask,
                 image_origin=ResourceOrigin.INTERNAL,
