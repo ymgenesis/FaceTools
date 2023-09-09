@@ -200,7 +200,7 @@ def extract_face(context: InvocationContext, image, all_faces, face_id, padding)
     mask_pil = mask_pil.crop((x_min, y_min, x_max, y_max))
     bounded_image = image.crop((x_min, y_min, x_max, y_max))
 
-    return bounded_image, mask_pil, x_min, y_min, y_min, y_max
+    return bounded_image, mask_pil, x_min, y_min, x_max, y_max
 
 
 @invocation_output("face_off_output")
@@ -286,7 +286,7 @@ class FaceOffInvocation(BaseInvocation):
             context.services.logger.warning(f'FaceOff --> Face ID {self.face_id} is outside of the number of faces detected ({len(all_faces)}). Passing through original image.')
             return None
 
-        bounded_image, mask_pil, x_min, y_min, y_min, y_max = extract_face(context, image, all_faces, face_id, self.padding)
+        bounded_image, mask_pil, x_min, y_min, x_max, y_max = extract_face(context, image, all_faces, face_id, self.padding)
 
         # Convert the input image to RGBA mode to ensure it has an alpha channel.
         bounded_image = bounded_image.convert("RGBA")
