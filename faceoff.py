@@ -45,7 +45,7 @@ def cleanup_faces_list(orig):
 
     newlist = sorted(newlist, key=lambda x: x['y_center'])
     newlist = sorted(newlist, key=lambda x: x['x_center'])
-    
+
     # add a face_id for reference
     face_id_counter = 1
     for face in newlist:
