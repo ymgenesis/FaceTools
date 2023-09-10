@@ -20,6 +20,10 @@ from invokeai.app.invocations.baseinvocation import (
 
 def cleanup_faces_list(orig):
     newlist = []
+
+    if len(orig) == 0:
+        return orig
+
     for i in orig:
         should_add = True
         i_x_center = i["x_center"]
@@ -54,6 +58,7 @@ def cleanup_faces_list(orig):
 
     return newlist
 
+
 def generate_face_box_mask(context: InvocationContext, faces, minimum_confidence, x_offset, y_offset, pil_image, chunk_x_offset=0, chunk_y_offset=0):
     result = []
 
@@ -69,7 +74,7 @@ def generate_face_box_mask(context: InvocationContext, faces, minimum_confidence
     face_mesh = mp.solutions.face_mesh.FaceMesh(
         max_num_faces=faces,
         min_detection_confidence=minimum_confidence,
-        min_tracking_confidence=minimum_confidence
+        min_tracking_confidence=minimum_confidence,
     )
 
     # Detect the face landmarks and mesh in the input image.
@@ -124,7 +129,7 @@ def generate_face_box_mask(context: InvocationContext, faces, minimum_confidence
             im_width, im_height = pil_image.size
             over_w = im_width * 0.1
             over_h = im_height * 0.1
-            context.services.logger.info(f'FaceOff --> {im_width} {im_height} - {left_side} {top_side} {bottom_side} {right_side}')
+            context.services.logger.info(f'FaceTools --> {im_width} {im_height} - {left_side} {top_side} {bottom_side} {right_side}')
             if (left_side >= -over_w) and (right_side < im_width + over_w) and (top_side >= -over_h) and (bottom_side < im_height + over_h):
                 this_face = dict()
                 this_face["pil_image"] = pil_image
@@ -135,9 +140,10 @@ def generate_face_box_mask(context: InvocationContext, faces, minimum_confidence
                 this_face["mesh_height"] = mesh_height
                 result.append(this_face)
             else:
-                context.services.logger.info(f'FaceOff --> Face out of bounds, ignoring.')
+                context.services.logger.info(f'FaceTools --> Face out of bounds, ignoring.')
 
     return result
+
 
 def extract_face(context: InvocationContext, image, all_faces, face_id, padding):
     mask_pil = all_faces[face_id]["mask_pil"]
@@ -164,43 +170,111 @@ def extract_face(context: InvocationContext, image, all_faces, face_id, padding)
 
     # Adjust the crop boundaries to stay within the original image's dimensions
     if x_min < 0:
-        context.services.logger.warning(f'FaceOff --> -X-axis padding reached image edge.')
+        context.services.logger.warning(f'FaceTools --> -X-axis padding reached image edge.')
         x_max -= x_min
         x_min = 0
     elif x_max > mask_pil.width:
-        context.services.logger.warning(f'FaceOff --> +X-axis padding reached image edge.')
+        context.services.logger.warning(f'FaceTools --> +X-axis padding reached image edge.')
         x_min -= (x_max - mask_pil.width)
         x_max = mask_pil.width
 
     if y_min < 0:
-        context.services.logger.warning(f'FaceOff --> +Y-axis padding reached image edge.')
+        context.services.logger.warning(f'FaceTools --> +Y-axis padding reached image edge.')
         y_max -= y_min
         y_min = 0
     elif y_max > mask_pil.height:
-        context.services.logger.warning(f'FaceOff --> -Y-axis padding reached image edge.')
+        context.services.logger.warning(f'FaceTools --> -Y-axis padding reached image edge.')
         y_min -= (y_max - mask_pil.height)
         y_max = mask_pil.height
 
     # Ensure the crop is square and adjust the boundaries if needed
     if x_max - x_min != crop_size:
-        context.services.logger.warning(f'FaceOff --> Limiting x-axis padding to constrain bounding box to a square.')
+        context.services.logger.warning(f'FaceTools --> Limiting x-axis padding to constrain bounding box to a square.')
         diff = crop_size - (x_max - x_min)
         x_min -= diff // 2
         x_max += diff - diff // 2
 
     if y_max - y_min != crop_size:
-        context.services.logger.warning(f'FaceOff --> Limiting y-axis padding to constrain bounding box to a square.')
+        context.services.logger.warning(f'FaceTools --> Limiting y-axis padding to constrain bounding box to a square.')
         diff = crop_size - (y_max - y_min)
         y_min -= diff // 2
         y_max += diff - diff // 2
 
-    context.services.logger.info(f'FaceOff --> Calculated bounding box (8 multiple): {crop_size}')
+    context.services.logger.info(f'FaceTools --> Calculated bounding box (8 multiple): {crop_size}')
 
     # Crop the output image to the specified size with the center of the face mesh as the center.
     mask_pil = mask_pil.crop((x_min, y_min, x_max, y_max))
     bounded_image = image.crop((x_min, y_min, x_max, y_max))
 
     return bounded_image, mask_pil, x_min, y_min, x_max, y_max
+
+
+def get_faces_list(context: InvocationContext, image, should_chunk, faces, minimum_confidence, x_offset, y_offset):
+    result = []
+
+    # Generate the face box mask and get the center of the face.
+    if should_chunk == False:
+        context.services.logger.info(f'FaceTools --> Attempting full image face detection.')
+        result = generate_face_box_mask(
+            context,
+            faces,
+            minimum_confidence,
+            x_offset,
+            y_offset,
+            image,
+        )
+    if should_chunk == True or len(result) == 0:
+        context.services.logger.info(f'FaceTools --> Chunking image (chunk toggled on, or no face found in full image).')
+        width, height = image.size
+        image_chunks = []
+        x_offsets = []
+        y_offsets = []
+        result = []
+
+        # If width == height, there's nothing more we can do... otherwise...
+        if width > height:
+            # Landscape - slice the image horizontally
+            fx = 0.0
+            steps = int(width * 2 / height)
+            while fx <= (width - height):
+                x = int(fx)
+                image_chunks.append(image.crop((x, 0, x + height - 1, height - 1)))
+                x_offsets.append(x)
+                y_offsets.append(0)
+                fx += (width - height) / steps
+                context.services.logger.info(f'FaceTools --> Chunk starting at x = {x}')
+        elif height > width:
+            # Portrait - slice the image vertically
+            fy = 0.0
+            steps = int(height * 2 / width)
+            while fy <= (height - width):
+                y = int(fy)
+                image_chunks.append(image.crop((0, y, width - 1, y + width - 1)))
+                x_offsets.append(0)
+                y_offsets.append(y)
+                fy += (height - width) / steps
+                context.services.logger.info(f'FaceTools --> Chunk starting at y = {y}')
+
+        for idx in range(len(image_chunks)):
+            context.services.logger.info(f'FaceTools --> Evaluating faces in chunk {idx}')
+            result = result + generate_face_box_mask(
+                context,
+                faces,
+                minimum_confidence,
+                x_offset,
+                y_offset,
+                image_chunks[idx],
+                x_offsets[idx],
+                y_offsets[idx],
+            )
+
+        if len(result) == 0:
+            # Give up
+            context.services.logger.warning(f'FaceTools --> No face detected in chunked input image. Passing through original image.')
+
+    all_faces = cleanup_faces_list(result)
+
+    return all_faces
 
 
 @invocation_output("face_off_output")
@@ -231,54 +305,15 @@ class FaceOffInvocation(BaseInvocation):
     def faceoff(self, context: InvocationContext) -> FaceOffOutput:
         image = context.services.images.get_pil_image(self.image.image_name)
 
-        # Generate the face box mask and get the center of the face.
-        if self.chunk == False:
-            context.services.logger.info(f'FaceOff --> Attempting full image face detection.')
-            result = generate_face_box_mask(context, self.faces, self.minimum_confidence, self.x_offset, self.y_offset, image)
-        if self.chunk == True or len(result) == 0:
-            context.services.logger.info(f'FaceOff --> Chunking image (chunk toggled on, or no face found in full image).')
-            width, height = image.size
-            image_chunks = []
-            x_offsets = []
-            y_offsets = []
-            result = []
-
-            if width == height:
-                # We cannot better handle a case where the image is square
-                raise
-            elif width > height:
-                # Landscape - slice the image horizontally
-                fx = 0.0
-                steps = int(width * 2 / height)
-                while fx <= (width - height):
-                    x = int(fx)
-                    image_chunks.append(image.crop((x, 0, x + height - 1, height - 1)))
-                    x_offsets.append(x)
-                    y_offsets.append(0)
-                    fx += (width - height) / steps
-                    context.services.logger.info(f'FaceOff --> Chunk starting at x = {x}')
-            elif height > width:
-                # Portrait - slice the image vertically
-                fy = 0.0
-                steps = int(height * 2 / width)
-                while fy <= (height - width):
-                    y = int(fy)
-                    image_chunks.append(image.crop((0, y, width - 1, y + width - 1)))
-                    x_offsets.append(0)
-                    y_offsets.append(y)
-                    fy += (height - width) / steps
-                    context.services.logger.info(f'FaceOff --> Chunk starting at y = {y}')
-
-            for idx in range(len(image_chunks)):
-                context.services.logger.info(f'FaceOff --> Evaluating faces in chunk {idx}')
-                result = result + generate_face_box_mask(context, self.faces, self.minimum_confidence, self.x_offset, self.y_offset, image_chunks[idx], x_offsets[idx], y_offsets[idx])
-
-            if len(result) == 0:
-                # Give up
-                context.services.logger.warning(f'FaceOff --> No face detected in chunked input image. Passing through original image.')
-                return None
-
-        all_faces = cleanup_faces_list(result)
+        all_faces = get_faces_list(
+            context,
+            image,
+            self.chunk,
+            self.faces,
+            self.minimum_confidence,
+            self.x_offset,
+            self.y_offset,
+        )
 
         face_id = self.face_id - 1 if self.face_id > 0 else self.face_id
 
@@ -286,7 +321,13 @@ class FaceOffInvocation(BaseInvocation):
             context.services.logger.warning(f'FaceOff --> Face ID {self.face_id} is outside of the number of faces detected ({len(all_faces)}). Passing through original image.')
             return None
 
-        bounded_image, mask_pil, x_min, y_min, x_max, y_max = extract_face(context, image, all_faces, face_id, self.padding)
+        bounded_image, mask_pil, x_min, y_min, x_max, y_max = extract_face(
+            context,
+            image,
+            all_faces,
+            face_id,
+            self.padding
+        )
 
         # Convert the input image to RGBA mode to ensure it has an alpha channel.
         bounded_image = bounded_image.convert("RGBA")
