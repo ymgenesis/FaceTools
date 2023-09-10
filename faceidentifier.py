@@ -56,7 +56,7 @@ class FaceIdentifierInvocation(BaseInvocation):
     image:                ImageField  = InputField(description="Image to face detect")
     faces:                int = InputField(default=4, description="Maximum number of faces to detect")
     minimum_confidence:   float = InputField(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")
-    chunk:               bool = InputField(default=False, description="Whether to bypass full image face detection and default to image chunking. Chunking will occur if no faces are found in the full image.")    
+    chunk:                bool = InputField(default=False, description="Whether to bypass full image face detection and default to image chunking. Chunking will occur if no faces are found in the full image.")    
 
     def generate_face_masks(self, context: InvocationContext, pil_image, chunk_x_offset=0, chunk_y_offset=0):
         result = []
