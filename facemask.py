@@ -322,18 +322,19 @@ class FaceMaskInvocation(BaseInvocation):
             id_range = [ (int(id.strip()) - 1) for id in self.face_ids.split(",") ]
 
         for face_id in id_range:
-            bounded_image, face_mask_pil, x_min, y_min, x_max, y_max = extract_face(
-                context,
-                image,
-                all_faces,
-                face_id,
-                0
-            )
-            mask_pil.paste(
-                Image.new(mode='L', size=((x_max - x_min, y_max - y_min)), color=255),
-                box=(x_min, y_min),
-                mask=ImageOps.invert(face_mask_pil)
-            )
+            if face_id >= 0 and face_id < len(all_faces):
+                bounded_image, face_mask_pil, x_min, y_min, x_max, y_max = extract_face(
+                    context,
+                    image,
+                    all_faces,
+                    face_id,
+                    0
+                )
+                mask_pil.paste(
+                    Image.new(mode='L', size=((x_max - x_min, y_max - y_min)), color=255),
+                    box=(x_min, y_min),
+                    mask=ImageOps.invert(face_mask_pil)
+                )
 
         if self.invert_mask:
             mask_pil = ImageOps.invert(mask_pil)
