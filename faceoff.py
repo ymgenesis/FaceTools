@@ -1,5 +1,5 @@
 ## FaceOff 3.7
-## A node for InvokeAI, written by YMGenesis/Matthew Janik
+## A node for InvokeAI, written by YMGenesis/Matthew Janik & JPPhoto
 
 import numpy as np
 import mediapipe as mp
