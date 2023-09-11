@@ -1,5 +1,5 @@
 ## FaceIdentifier 1.9
-## A node for InvokeAI, written by YMGenesis/Matthew Janik
+## A node for InvokeAI, written by YMGenesis/Matthew Janik & JPPhoto
 
 from PIL import Image, ImageDraw
 import cv2
