@@ -129,7 +129,6 @@ def generate_face_box_mask(context: InvocationContext, faces, minimum_confidence
             im_width, im_height = pil_image.size
             over_w = im_width * 0.1
             over_h = im_height * 0.1
-            context.services.logger.info(f'FaceTools --> {im_width} {im_height} - {left_side} {top_side} {bottom_side} {right_side}')
             if (left_side >= -over_w) and (right_side < im_width + over_w) and (top_side >= -over_h) and (bottom_side < im_height + over_h):
                 this_face = dict()
                 this_face["pil_image"] = pil_image
@@ -321,6 +320,9 @@ class FaceMaskInvocation(BaseInvocation):
         if self.face_ids.strip() != '0':
             id_range = [ (int(id.strip()) - 1) for id in self.face_ids.split(",") ]
 
+        if all(face_id > len(all_faces) for face_id in id_range):
+            return None
+
         for face_id in id_range:
             if face_id >= 0 and face_id < len(all_faces):
                 bounded_image, face_mask_pil, x_min, y_min, x_max, y_max = extract_face(
@@ -374,7 +376,7 @@ class FaceMaskInvocation(BaseInvocation):
         if result is None:
             image = context.services.images.get_pil_image(self.image.image_name)
             whitemask = Image.new("L", image.size, color=255)
-            context.services.logger.info(f'FaceMask --> No face detected. Passing through original image.')
+            context.services.logger.warning(f'FaceMask --> No face detected. Passing through original image.')
 
             image_dto = context.services.images.create(
                 image=image,
