@@ -132,6 +132,8 @@ image face detection and greatly improve detection success.
 - Final results will vary between full-image detection and chunking for faces
 that are detectable by both due to the nature of the process. Try either to
 your taste.
+- Be sure Minimum Confidence is set the same when using FaceIdentifier with
+FaceOff/FaceMask.
 - For FaceOff, use the color correction node before faceplace to correct
 edges being noticeable in the final image (see example screenshot).
 - Non-inpainting models may struggle to paint/generate correctly around faces.

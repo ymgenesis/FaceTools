@@ -18,6 +18,28 @@ from invokeai.app.invocations.baseinvocation import (
     invocation_output)
 
 
+@invocation_output("face_mask_output")
+class FaceMaskOutput(BaseInvocationOutput):
+    """Base class for FaceMask output"""
+
+    image:      ImageField = OutputField(description="The output image")
+    width:      int = OutputField(description="The width of the image in pixels")
+    height:     int = OutputField(description="The height of the image in pixels")
+    mask:       ImageField = OutputField(description="The output mask")
+
+
+@invocation_output("face_off_output")
+class FaceOffOutput(BaseInvocationOutput):
+    """Base class for FaceOff Output"""
+
+    bounded_image:     ImageField = OutputField(default=None, description="Original image bound, cropped, and resized")
+    width:             int = OutputField(description="The width of the bounded image in pixels")
+    height:            int = OutputField(description="The height of the bounded image in pixels")
+    mask:              ImageField = OutputField(default=None, description="The output mask")
+    x:                 int = OutputField(description="The x coordinate of the bounding box's left side")
+    y:                 int = OutputField(description="The y coordinate of the bounding box's top side")
+
+
 def cleanup_faces_list(orig):
     newlist = []
 
@@ -298,18 +320,6 @@ def get_faces_list(
     return all_faces
 
 
-@invocation_output("face_off_output")
-class FaceOffOutput(BaseInvocationOutput):
-    """Base class for FaceOff Output"""
-
-    bounded_image:     ImageField = OutputField(default=None, description="Original image bound, cropped, and resized")
-    width:             int = OutputField(description="The width of the bounded image in pixels")
-    height:            int = OutputField(description="The height of the bounded image in pixels")
-    mask:              ImageField = OutputField(default=None, description="The output mask")
-    x:                 int = OutputField(description="The x coordinate of the bounding box's left side")
-    y:                 int = OutputField(description="The y coordinate of the bounding box's top side")
-
-
 @invocation("face_off", title="FaceOff", tags=["image", "faceoff", "face", "mask"], category="image", version="1.0.0")
 class FaceOffInvocation(BaseInvocation):
     """bound, extract, and mask a face from an image using MediaPipe detection"""
@@ -418,16 +428,6 @@ class FaceOffInvocation(BaseInvocation):
         return result
 
 
-@invocation_output("face_mask_output")
-class FaceMaskOutput(BaseInvocationOutput):
-    """Base class for FaceMask output"""
-
-    image:      ImageField = OutputField(description="The output image")
-    width:      int = OutputField(description="The width of the image in pixels")
-    height:     int = OutputField(description="The height of the image in pixels")
-    mask:       ImageField = OutputField(description="The output mask")
-
-
 @invocation("face_mask_detection", title="FaceMask", tags=["image", "face", "mask"], category="image", version="1.0.0")
 class FaceMaskInvocation(BaseInvocation):
     """Face mask creation using mediapipe face detection"""
@@ -460,7 +460,7 @@ class FaceMaskInvocation(BaseInvocation):
         if self.face_ids.strip() != '0':
             id_range = [ (int(id.strip()) - 1) for id in self.face_ids.split(",") ]
 
-        if all(face_id > len(all_faces) for face_id in id_range):
+        if all(face_id + 1 > len(all_faces) for face_id in id_range):
             return None
 
         for face_id in id_range:
