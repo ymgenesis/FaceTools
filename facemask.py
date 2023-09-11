@@ -59,7 +59,7 @@ def cleanup_faces_list(orig):
     return newlist
 
 
-def generate_face_box_mask(context: InvocationContext, faces, minimum_confidence, x_offset, y_offset, pil_image, chunk_x_offset=0, chunk_y_offset=0):
+def generate_face_box_mask(context: InvocationContext, minimum_confidence, x_offset, y_offset, pil_image, chunk_x_offset=0, chunk_y_offset=0):
     result = []
 
     # Convert the PIL image to a NumPy array.
@@ -72,7 +72,7 @@ def generate_face_box_mask(context: InvocationContext, faces, minimum_confidence
 
     # Create a FaceMesh object for face landmark detection and mesh generation.
     face_mesh = mp.solutions.face_mesh.FaceMesh(
-        max_num_faces=faces,
+        max_num_faces=999,
         min_detection_confidence=minimum_confidence,
         min_tracking_confidence=minimum_confidence,
     )
@@ -208,7 +208,7 @@ def extract_face(context: InvocationContext, image, all_faces, face_id, padding)
     return bounded_image, mask_pil, x_min, y_min, x_max, y_max
 
 
-def get_faces_list(context: InvocationContext, image, should_chunk, faces, minimum_confidence, x_offset, y_offset):
+def get_faces_list(context: InvocationContext, image, should_chunk, minimum_confidence, x_offset, y_offset):
     result = []
 
     # Generate the face box mask and get the center of the face.
@@ -216,7 +216,6 @@ def get_faces_list(context: InvocationContext, image, should_chunk, faces, minim
         context.services.logger.info(f'FaceTools --> Attempting full image face detection.')
         result = generate_face_box_mask(
             context,
-            faces,
             minimum_confidence,
             x_offset,
             y_offset,
@@ -258,7 +257,6 @@ def get_faces_list(context: InvocationContext, image, should_chunk, faces, minim
             context.services.logger.info(f'FaceTools --> Evaluating faces in chunk {idx}')
             result = result + generate_face_box_mask(
                 context,
-                faces,
                 minimum_confidence,
                 x_offset,
                 y_offset,
@@ -292,7 +290,6 @@ class FaceMaskInvocation(BaseInvocation):
 
     image:                ImageField  = InputField(description="Image to face detect")
     face_ids:             str = InputField(default="0", description="0 for all faces, single digit for one, comma-separated list for multiple specific (1, 2, 4). Find face IDs with FaceIdentifier node.")
-    faces:                int = InputField(default=10, description="Maximum number of faces to detect")
     minimum_confidence:   float = InputField(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")
     x_offset:             float = InputField(default=0.0, description="Offset for the X-axis of the face mask")
     y_offset:             float = InputField(default=0.0, description="Offset for the Y-axis of the face mask")
@@ -306,7 +303,6 @@ class FaceMaskInvocation(BaseInvocation):
             context,
             image,
             self.chunk,
-            self.faces,
             self.minimum_confidence,
             self.x_offset,
             self.y_offset,
