@@ -301,7 +301,7 @@ def cleanup_faces_list(orig):
 
     newlist = sorted(newlist, key=lambda x: x['y_center'])
     newlist = sorted(newlist, key=lambda x: x['x_center'])
-    
+
     # add a face_id for reference
     face_id_counter = 1
     for face in newlist:
@@ -367,7 +367,7 @@ class FaceIdentifierInvocation(BaseInvocation):
         if result is None:
             image = context.services.images.get_pil_image(self.image.image_name)
             context.services.logger.info(f'FaceIdentifier --> No face detected. Passing through original image without drawing FaceIDs.')
-            
+
             image_dto = context.services.images.create(
                 image=image,
                 image_origin=ResourceOrigin.INTERNAL,
@@ -383,5 +383,5 @@ class FaceIdentifierInvocation(BaseInvocation):
                 width=image_dto.width,
                 height=image_dto.height,
             )
-    
+
         return result
