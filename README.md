@@ -2,7 +2,7 @@
 
 A nodes extension for use with [InvokeAI](https://github.com/invoke-ai/InvokeAI "InvokeAI").
 
-The usual inpainting technique of adding detail/changing faces in Canvas consists of resizing the bounding box around the head, drawing a mask on the face, and generating according to selected settings (denoise strength, steps, scheduler, etc.). As this sort of UI is not currently possible in the Experimental Node Editor, the FaceOff, FaceMask, and FacePlace nodes were created specifically to give you similar functionality through a semi-automated process.
+The usual inpainting technique of adding detail/changing faces in Canvas consists of resizing the bounding box around the head, drawing a mask on the face, and generating according to selected settings (denoise strength, steps, scheduler, etc.). FaceIdentifier, FaceMask, and FaceOff were created specifically to give you similar functionality through a semi-automated workflow process.
 
 ## Installation
 
@@ -11,13 +11,11 @@ To install, place the `.py` files into your InvokeAI invocations folder located 
 Windows - `invokeai\.venv\Lib\site-packages\invokeai\app\invocations\`
 <br>Mac/Linux - `invokeai/.venv/lib/python3.10/site-packages/invokeai/app/invocations/`
 
-
-
 ## FaceOff
 
-FaceOff mimics a user finding a face in an image and resizing the bounding box around the head in Canvas. Just as you would add more context inside the bounding box by making it larger in Canvas, the node gives you a padding input (in pixels) which will simultanesoly add more context, and increase the resolution of the bounding box so the face remains the same size inside it. The node also allows you to scale the bounding box by a factor to a higher resolution which may result in finer detail. Either enter a specific face ID (found with FaceIdentifier), or 0 to mask the first detected image (if there's only one face in an image). The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing.
+FaceOff mimics a user finding a face in an image and resizing the bounding box around the head in Canvas. Just as you would add more context inside the bounding box by making it larger in Canvas, the node gives you a padding input (in pixels) which will simultaneously add more context, and increase the resolution of the bounding box so the face remains the same size inside it. Either enter a specific face ID (found with FaceIdentifier), or 0 to mask the first detected face. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing. If the detected masks are imperfect and stray too far outside/inside of faces, the node gives you X & Y offsets to shrink/grow the masks by a multiplier.
 
-FaceOff will output the face in a bounded image, taking the face off of the original image for input into any node that accepts image inputs. The node also outputs a face mask with the dimensions of the bounded image. The X & Y outputs are for connecting to the X & Y inputs of FacePlace, which will place the bounded image back on the original image using these coordinates.
+FaceOff will output the face in a bounded image, taking the face off of the original image for input into any node that accepts image inputs. The node also outputs a face mask with the dimensions of the bounded image. The X & Y outputs are for connecting to the X & Y inputs of the Paste Image node, which will place the bounded image back on the original image using these coordinates.
 
 ###### Inputs/Outputs
 
@@ -25,12 +23,11 @@ FaceOff will output the face in a bounded image, taking the face off of the orig
 | -------- | ------------ |
 | Image | Image for face detection |
 | Faces ID | 0 for first detected face, single digit for one specific. Multiple faces not supported. Find a face's ID with FaceIdentifier node. |
-| Faces | Maximum number of faces to detect |
 | Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
 | X Offset | X-axis offset of the mask |
 | Y Offset | Y-axis offset of the mask |
 | Padding | All-axis padding around the mask in pixels |
-| Scale Factor | Factor to scale the bounding box by before outputting |
+| Chunk | Chunk (or divide) the image into sections to greatly improve face detection success. Defaults to off, but will activate if no faces are detected normally. Activate to chunk by default. |
 
 | Output | Description |
 | -------- | ------------ |
@@ -41,12 +38,9 @@ FaceOff will output the face in a bounded image, taking the face off of the orig
 | X | The x coordinate of the bounding box's left side |
 | Y | The y coordinate of the bounding box's top side |
 
-
-
 ## FaceMask
 
-FaceMask mimics a user drawing masks on faces in an image in Canvas. The "Faces IDs" input allows the user to select specific faces to be masked. Input 0 to detect and mask all faces, a single digit for one face specifically (ex: 1), or a comma-separated list with spaces for a specific combination of faces (ex: 1, 2, 4). Find face IDs with the FaceIdentifier node. The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing. If the detected masks are imperfect and stray too far outside/inside of faces, the node gives you X & Y offsets to shrink/grow the masks by a multiplier. As of now all masks shrink/grow together by the X & Y offset values. By default, masks are created to protect faces, with only surrounding areas being affected by inpainting (ie. putting the same faces on new bodies). When masks are inverted, they protect surrounding areas, with only the faces being affected by inpainting (ie. putting new faces on the same bodies).
-
+FaceMask mimics a user drawing masks on faces in an image in Canvas. The "Faces IDs" input allows the user to select specific faces to be masked. Input 0 to detect and mask all faces, a single digit for one face specifically (ex: 1), or a comma-separated list for a specific combination of faces (ex: 1,2,4). Find face IDs with the FaceIdentifier node. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing. If the detected masks are imperfect and stray too far outside/inside of faces, the node gives you X & Y offsets to shrink/grow the masks by a multiplier. All masks shrink/grow together by the X & Y offset values. By default, masks are created to protect faces, with only surrounding areas being affected by inpainting (ie. putting the same faces on new bodies). When masks are inverted, they protect surrounding areas, with only the faces being affected by inpainting (ie. putting new faces on the same bodies).
 
 ###### Inputs/Outputs
 
@@ -54,10 +48,10 @@ FaceMask mimics a user drawing masks on faces in an image in Canvas. The "Faces 
 | -------- | ------------ |
 | Image | Image for face detection |
 | Faces IDs | 0 for all faces, single digit for one specific, comma-separated list with spaces for multiple specific (1, 2, 4). Find face IDs with FaceIdentifier node. |
-| Faces | Maximum number of faces to detect |
 | Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
 | X Offset | X-axis offset of the mask |
 | Y Offset | Y-axis offset of the mask |
+| Chunk | Chunk (or divide) the image into sections to greatly improve face detection success. Defaults to off, but will activate if no faces are detected normally. Activate to chunk by default. |
 | Invert Mask | Toggle to invert the face mask |
 
 | Output | Description |
@@ -67,41 +61,17 @@ FaceMask mimics a user drawing masks on faces in an image in Canvas. The "Faces 
 | Height | The height of the image in pixels |
 | Mask | The output face mask |
 
-
-
-## FacePlace
-
-FacePlace is a simple node that will take in the bounded image from FaceOff (either directly, or after processing with other nodes), the original image to place the bounded image back on to, the factor to downscale the bounded image by (if previously upscaled in FaceOff or other nodes), and the X & Y coordinate outputs from FaceOff.
-
-###### Inputs/Outputs
-
-| Input | Description |
-| -------- | ------------ |
-| Bounded Image | The bounded image to be placed on the original image |
-| Original Image | The original image to place the bounded image on |
-| Downscale Factor | Factor to downscale the bounded image before placing |
-| X | The x coordinate (top left corner) to place on the original image |
-| Y | The y coordinate (top left corner) to place on the original image |
-
-| Output | Description |
-| -------- | ------------ |
-| Image | The full image with the face placed on |
-| Width | The width of the image in pixels |
-| Height | The height of the image in pixels |
-
-
-
 ## FaceIdentifier
 
-FaceIdentifier outputs an image with detected face ID numbers printed in white onto each face (ex: 1, 2, 3, etc.). Face IDs can then be used in FaceMask and FaceOff to selectively mask all, a specific combination, or single faces. The FaceIdentifier output image is generated for user reference. The "Faces" input limits the detection to a specific number of faces. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing.
+FaceIdentifier outputs an image with detected face IDs printed in small white numbers onto each face. Face IDs can then be used in FaceMask and FaceOff to selectively mask all, a specific combination, or single faces. The FaceIdentifier output image is generated for user reference, and isn't meant to be passed on to other image-processing nodes. The "Minimum Confidence" input defaults to 0.5 (50%), and represents a pass/fail threshold a detected face must reach for it to be processed. Lowering this value may help if detection is failing. If an image is changed in the slightest, run it through FaceIdentifier again to get updated FaceIDs.
 
 ###### Inputs/Outputs
 
 | Input | Description |
 | -------- | ------------ |
 | Image | Image for face detection |
-| Faces | Maximum number of faces to detect |
 | Minimum Confidence | Minimum confidence for face detection (lower if detection is failing) |
+| Chunk | Chunk (or divide) the image into sections to greatly improve face detection success. Defaults to off, but will activate if no faces are detected normally. Activate to chunk by default. |
 
 | Output | Description |
 | -------- | ------------ |
@@ -113,17 +83,17 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 
 # Tips
 
-- For faceoff, use the color correction node before faceplace to correct edges being noticeable in the final image (see example screenshot).
-- Non-inpainting models may struggle to paint/generate correctly around faces
+- If not all target faces are being detected, activate Chunk to bypass full image face detection and greatly improve detection success. 
+- Final results will vary between full-image detection and chunking for faces that are detectable by both due to the nature of the process. Try either to your taste.
+- For FaceOff, use the color correction node before faceplace to correct edges being noticeable in the final image (see example screenshot).
+- Non-inpainting models may struggle to paint/generate correctly around faces.
 - If your face won't change the way you want it to no matter what you change, consider that the change you're trying to make is too much at that resolution. For example, if an image is only 512x768 total, the face might only be 128x128 or 256x256, much smaller than the 512x512 your SD1.5 model was probably trained on. Try increasing the resolution of the image by upscaling or resizing, add padding to increase the bounding box's resolution, or use an image where the face takes up more pixels.
 - If the resulting face seems out of place pasted back on the original image (ie. too large, not proportional), add more padding on the FaceOff node to give inpainting more context. Context and good prompting are important to keeping things proportional.
 - If you find the mask is too big/small and going too far outside/inside the area you want to affect, adjust the x & y offsets to shrink/grow the mask area
-- Make sure to match the scaling factors between the two nodes (unless introducing other upscaling/downscaling prior to FacePlace, in which case some math is necessary). If upscaling the original image between FaceOff and FacePlace to avoid downscaling the bounded image before placement, the X & Y coordinate outputs from FaceOff have to be multiplied with Multiply nodes by the same upscale factor you upscaled the original image by in between.
 - Use a higher denoise start value to resemble aspects of the original face or surroundings. Denoise start = 0 & denoise end = 1 will make something new, while denoise start = 0.50 & denoise end = 1 will be 50% old and 50% new.
-- mediapipe isn't good at detecting faces with lots of face paint, hair covering the face, etc. Anything that obstructs the face will likely result in no faces being detected
+- mediapipe isn't good at detecting faces with lots of face paint, hair covering the face, etc. Anything that obstructs the face will likely result in no faces being detected.
 - If you find your face isn't being detected, try lowering the minimum confidence value from 0.5. This could result in false positives, however (random areas being detected as faces and masked).
-- Be sure your "Faces" input corresponds to the amount of faces you want to detect.
-- After altering an image and wanting to process a different face in the newly altered image, run the altered image through FaceIdentifier again to see the new Face IDs. MediaPipe will detect faces in a different order after other faces have changed.
+- After altering an image and wanting to process a different face in the newly altered image, run the altered image through FaceIdentifier again to see the new Face IDs. MediaPipe will most likely detect faces in a different order after an image has been changed in the slightest.
 
 <hr>
 
@@ -131,23 +101,30 @@ FaceIdentifier outputs an image with detected face ID numbers printed in white o
 
 ## Screenshots
 
-FaceIdentifier (August 31, 2023)
+FaceIdentifier (September 11, 2023)
 
-![faceidentifier](https://github.com/ymgenesis/FaceTools/assets/25252829/465fa625-5ef9-4c10-8f40-2a921c1bae2f)
-![faceidentifierresult](https://github.com/ymgenesis/FaceTools/assets/25252829/3bafa89c-af37-4f95-b476-f3b4ac2e422e)
+![faceid](https://github.com/ymgenesis/FaceTools/assets/25252829/1ade50de-0595-4ff0-bcca-67d89d417017)
+![faceidresult](https://github.com/ymgenesis/FaceTools/assets/25252829/94955e8c-a5dc-49cc-b35e-eabab49a7bbb)
 
-FaceOff + FacePlace (August 31, 2023)
+FaceOff (September 11, 2023)
 
-![faceofffaceplace](https://github.com/ymgenesis/FaceTools/assets/25252829/a6a40717-f8f9-4a43-9127-3b743b8bd819)
+![faceoff](https://github.com/ymgenesis/FaceTools/assets/25252829/8f50facb-ef98-4ee4-adb8-f55afcd98b8c)
+![faceoffnochunk](https://github.com/ymgenesis/FaceTools/assets/25252829/00060540-b25b-4287-a066-552c56b7f211)
 
-FaceMask (August 31, 2023)
+FaceMask (September 11, 2023)
 
-![facemaskgraph](https://github.com/ymgenesis/FaceTools/assets/25252829/ef4a9324-6633-4c3c-a4a1-856c5e4aedaa)
+![facemask](https://github.com/ymgenesis/FaceTools/assets/25252829/40064b61-c134-417c-8925-182988d81471)
+![facemasknochunk](https://github.com/ymgenesis/FaceTools/assets/25252829/c4afbfba-be38-4afa-b6ee-1dc23fc3dada)
+<br>Mask inverted:
+<br>![facemaskinvertnochunkclowns](https://github.com/ymgenesis/FaceTools/assets/25252829/20416e58-c4b1-49da-b53b-2d6fcfc4f404)
 
+## Workflows
+
+As of September 11, 2023, open the above FaceOff and FaceMask cowboy result images in another tab and save them. Drag them into InvokeAI and look under your current board's assets section. Right click the uploaded images and select load workflow. The process and/or nodes may change in the future, possibly breaking these workflows.
 
 ## Videos
 
-These videos are partially outdated. InvokeAI no longer has a single inpaint node. It's now broken down like other regular latents processing. Node usage is roughly the same. See above usage screenshots.
+These videos are outdated. InvokeAI no longer has a single inpaint node. It's now broken down like other regular latents processing. Some input fields are deprecated, but node usage is roughly the same. FacePlace is deprecated (use the Paste Image node instead). See above usage screenshots for newer examples.
 
 ### FaceIdentifier + FaceOff
 
