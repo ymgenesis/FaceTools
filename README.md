@@ -12,7 +12,7 @@ workflow process.
 
 ## Installation
 
-To install, place the `.py` files into your InvokeAI invocations folder
+To install, place `facetools.py` into your InvokeAI invocations folder
 located here:
 
 Windows - `invokeai\.venv\Lib\site-packages\invokeai\app\invocations\`
