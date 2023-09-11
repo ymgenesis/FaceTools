@@ -1,13 +1,13 @@
-## FaceMask 3.7
-## A node for InvokeAI, written by YMGenesis/Matthew Janik & JPPhoto
+## FaceTools 3.7
+## Nodes for InvokeAI, written by YMGenesis/Matthew Janik & JPPhoto/Jonathan S. Pollack
 
-from PIL import Image, ImageOps
-import cv2
-import mediapipe as mp
 import numpy as np
+import mediapipe as mp
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
+import cv2
 import math
 from invokeai.app.models.image import (ImageCategory, ResourceOrigin)
-from invokeai.app.invocations.primitives import ImageField
+from invokeai.app.invocations.primitives import ImageField, ImageOutput
 from invokeai.app.invocations.baseinvocation import (
     BaseInvocation,
     BaseInvocationOutput,
@@ -59,7 +59,16 @@ def cleanup_faces_list(orig):
     return newlist
 
 
-def generate_face_box_mask(context: InvocationContext, minimum_confidence, x_offset, y_offset, pil_image, chunk_x_offset=0, chunk_y_offset=0):
+def generate_face_box_mask(
+    context: InvocationContext,
+    minimum_confidence,
+    x_offset,
+    y_offset,
+    pil_image,
+    chunk_x_offset=0,
+    chunk_y_offset=0,
+    draw_mesh=True
+):
     result = []
 
     # Convert the PIL image to a NumPy array.
@@ -107,20 +116,22 @@ def generate_face_box_mask(context: InvocationContext, minimum_confidence, x_off
             scale_multiplier = 0.2
             x_center = np.mean(face_landmark_points[:, 0])
             y_center = np.mean(face_landmark_points[:, 1])
-            x_scaled = face_landmark_points[:, 0] + scale_multiplier * x_offset * (face_landmark_points[:, 0] - x_center)
-            y_scaled = face_landmark_points[:, 1] + scale_multiplier * y_offset * (face_landmark_points[:, 1] - y_center)
 
-            convex_hull = cv2.convexHull(np.column_stack((x_scaled, y_scaled)).astype(np.int32))
+            if draw_mesh:
+                x_scaled = face_landmark_points[:, 0] + scale_multiplier * x_offset * (face_landmark_points[:, 0] - x_center)
+                y_scaled = face_landmark_points[:, 1] + scale_multiplier * y_offset * (face_landmark_points[:, 1] - y_center)
 
-            # Generate a binary face mask using the face mesh.
-            mask_image = np.ones(np_image.shape[:2], dtype=np.uint8) * 255
-            cv2.fillConvexPoly(mask_image, convex_hull, 0)
+                convex_hull = cv2.convexHull(np.column_stack((x_scaled, y_scaled)).astype(np.int32))
 
-            # Convert the binary mask image to a PIL Image.
-            init_mask_pil = Image.fromarray(mask_image, mode='L')
-            w, h = init_mask_pil.size
-            mask_pil = Image.new(mode='L', size=(w + chunk_x_offset, h + chunk_y_offset), color=255)
-            mask_pil.paste(init_mask_pil, (chunk_x_offset, chunk_y_offset))
+                # Generate a binary face mask using the face mesh.
+                mask_image = np.ones(np_image.shape[:2], dtype=np.uint8) * 255
+                cv2.fillConvexPoly(mask_image, convex_hull, 0)
+
+                # Convert the binary mask image to a PIL Image.
+                init_mask_pil = Image.fromarray(mask_image, mode='L')
+                w, h = init_mask_pil.size
+                mask_pil = Image.new(mode='L', size=(w + chunk_x_offset, h + chunk_y_offset), color=255)
+                mask_pil.paste(init_mask_pil, (chunk_x_offset, chunk_y_offset))
 
             left_side = x_center - mesh_width
             right_side = x_center + mesh_width
@@ -131,8 +142,9 @@ def generate_face_box_mask(context: InvocationContext, minimum_confidence, x_off
             over_h = im_height * 0.1
             if (left_side >= -over_w) and (right_side < im_width + over_w) and (top_side >= -over_h) and (bottom_side < im_height + over_h):
                 this_face = dict()
-                this_face["pil_image"] = pil_image
-                this_face["mask_pil"] = mask_pil
+                if draw_mesh:
+                    this_face["pil_image"] = pil_image
+                    this_face["mask_pil"] = mask_pil
                 this_face["x_center"] = x_center + chunk_x_offset
                 this_face["y_center"] = y_center + chunk_y_offset
                 this_face["mesh_width"] = mesh_width
@@ -208,7 +220,15 @@ def extract_face(context: InvocationContext, image, all_faces, face_id, padding)
     return bounded_image, mask_pil, x_min, y_min, x_max, y_max
 
 
-def get_faces_list(context: InvocationContext, image, should_chunk, minimum_confidence, x_offset, y_offset):
+def get_faces_list(
+    context: InvocationContext,
+    image,
+    should_chunk,
+    minimum_confidence,
+    x_offset,
+    y_offset,
+    draw_mesh=True
+):
     result = []
 
     # Generate the face box mask and get the center of the face.
@@ -220,6 +240,9 @@ def get_faces_list(context: InvocationContext, image, should_chunk, minimum_conf
             x_offset,
             y_offset,
             image,
+            0,
+            0,
+            draw_mesh,
         )
     if should_chunk == True or len(result) == 0:
         context.services.logger.info(f'FaceTools --> Chunking image (chunk toggled on, or no face found in full image).')
@@ -263,6 +286,7 @@ def get_faces_list(context: InvocationContext, image, should_chunk, minimum_conf
                 image_chunks[idx],
                 x_offsets[idx],
                 y_offsets[idx],
+                draw_mesh,
             )
 
         if len(result) == 0:
@@ -272,6 +296,126 @@ def get_faces_list(context: InvocationContext, image, should_chunk, minimum_conf
     all_faces = cleanup_faces_list(result)
 
     return all_faces
+
+
+@invocation_output("face_off_output")
+class FaceOffOutput(BaseInvocationOutput):
+    """Base class for FaceOff Output"""
+
+    bounded_image:     ImageField = OutputField(default=None, description="Original image bound, cropped, and resized")
+    width:             int = OutputField(description="The width of the bounded image in pixels")
+    height:            int = OutputField(description="The height of the bounded image in pixels")
+    mask:              ImageField = OutputField(default=None, description="The output mask")
+    x:                 int = OutputField(description="The x coordinate of the bounding box's left side")
+    y:                 int = OutputField(description="The y coordinate of the bounding box's top side")
+
+
+@invocation("face_off", title="FaceOff", tags=["image", "faceoff", "face", "mask"], category="image", version="1.0.0")
+class FaceOffInvocation(BaseInvocation):
+    """bound, extract, and mask a face from an image using MediaPipe detection"""
+
+    image:               ImageField  = InputField(description="Image for face detection")
+    face_id:             int = InputField(default=0, description="0 for first detected face, single digit for one specific. Multiple faces not supported. Find a face's ID with FaceIdentifier node.")
+    minimum_confidence:  float = InputField(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")
+    x_offset:            float = InputField(default=0.0, description="X-axis offset of the mask")
+    y_offset:            float = InputField(default=0.0, description="Y-axis offset of the mask")
+    padding:             int = InputField(default=0, description="All-axis padding around the mask in pixels")
+    chunk:               bool = InputField(default=False, description="Whether to bypass full image face detection and default to image chunking. Chunking will occur if no faces are found in the full image.")
+
+    def faceoff(self, context: InvocationContext) -> FaceOffOutput:
+        image = context.services.images.get_pil_image(self.image.image_name)
+
+        all_faces = get_faces_list(
+            context,
+            image,
+            self.chunk,
+            self.minimum_confidence,
+            self.x_offset,
+            self.y_offset,
+        )
+
+        face_id = self.face_id - 1 if self.face_id > 0 else self.face_id
+
+        if face_id + 1 > len(all_faces) or face_id < 0:
+            context.services.logger.warning(f'FaceOff --> Face ID {self.face_id} is outside of the number of faces detected ({len(all_faces)}). Passing through original image.')
+            return None
+
+        bounded_image, mask_pil, x_min, y_min, x_max, y_max = extract_face(
+            context,
+            image,
+            all_faces,
+            face_id,
+            self.padding
+        )
+
+        # Convert the input image to RGBA mode to ensure it has an alpha channel.
+        bounded_image = bounded_image.convert("RGBA")
+
+        bounded_image_dto = context.services.images.create(
+            image=bounded_image,
+            image_origin=ResourceOrigin.INTERNAL,
+            image_category=ImageCategory.GENERAL,
+            node_id=self.id,
+            session_id=context.graph_execution_state_id,
+            is_intermediate=self.is_intermediate,
+            workflow=self.workflow,
+        )
+
+        mask_dto = context.services.images.create(
+            image=mask_pil,
+            image_origin=ResourceOrigin.INTERNAL,
+            image_category=ImageCategory.MASK,
+            node_id=self.id,
+            session_id=context.graph_execution_state_id,
+            is_intermediate=self.is_intermediate,
+        )
+
+        return FaceOffOutput(
+            bounded_image=ImageField(image_name=bounded_image_dto.image_name),
+            width=bounded_image_dto.width,
+            height=bounded_image_dto.height,
+            mask=ImageField(image_name=mask_dto.image_name),
+            x=x_min,
+            y=y_min,
+        )
+
+    def invoke(self, context: InvocationContext) -> FaceOffOutput:
+        result = self.faceoff(context)
+
+        if result is None:
+            image = context.services.images.get_pil_image(self.image.image_name)
+            whitemask = Image.new("L", image.size, color=255)
+            context.services.logger.info(f'FaceOff --> No face detected. Passing through original image.')
+
+            image_dto = context.services.images.create(
+                image=image,
+                image_origin=ResourceOrigin.INTERNAL,
+                image_category=ImageCategory.GENERAL,
+                node_id=self.id,
+                session_id=context.graph_execution_state_id,
+                is_intermediate=self.is_intermediate,
+                workflow=self.workflow,
+            )
+
+            mask_dto = context.services.images.create(
+                image=whitemask,
+                image_origin=ResourceOrigin.INTERNAL,
+                image_category=ImageCategory.MASK,
+                node_id=self.id,
+                session_id=context.graph_execution_state_id,
+                is_intermediate=self.is_intermediate,
+            )
+
+            result = FaceOffOutput(
+                bounded_image=ImageField(image_name=image_dto.image_name),
+                width=image_dto.width,
+                height=image_dto.height,
+                mask=ImageField(image_name=mask_dto.image_name),
+                x=0,
+                y=0,
+            )
+
+        return result
 
 
 @invocation_output("face_mask_output")
@@ -398,6 +542,81 @@ class FaceMaskInvocation(BaseInvocation):
                 width=image_dto.width,
                 height=image_dto.height,
                 mask=ImageField(image_name=mask_dto.image_name),
+            )
+
+        return result
+
+
+@invocation("face_identifier", title="FaceIdentifier", tags=["image", "face", "identifier"], category="image", version="1.0.0")
+class FaceIdentifierInvocation(BaseInvocation):
+    """Outputs an image with detected face IDs printed on each face. For use with other FaceTools."""
+
+    image:                ImageField  = InputField(description="Image to face detect")
+    minimum_confidence:   float = InputField(default=0.5, description="Minimum confidence for face detection (lower if detection is failing)")
+    chunk:                bool = InputField(default=False, description="Whether to bypass full image face detection and default to image chunking. Chunking will occur if no faces are found in the full image.")    
+
+    def faceidentifier(self, context: InvocationContext) -> ImageOutput:
+        image = context.services.images.get_pil_image(self.image.image_name)
+        image = image.copy()
+
+        all_faces = get_faces_list(
+            context,
+            image,
+            self.chunk,
+            self.minimum_confidence,
+            0,
+            0,
+            False,
+        )
+
+        # Paste face IDs on the output image
+        draw = ImageDraw.Draw(image)
+        for face in all_faces:
+            x_coord = face["x_center"]
+            y_coord = face["y_center"]
+            face_id = face["face_id"]
+            draw.text((x_coord, y_coord), str(face_id), fill=(255, 255, 255, 255))
+
+        # Create an RGBA image with transparency
+        image = image.convert("RGBA")
+
+        image_dto = context.services.images.create(
+            image=image,
+            image_origin=ResourceOrigin.INTERNAL,
+            image_category=ImageCategory.GENERAL,
+            node_id=self.id,
+            session_id=context.graph_execution_state_id,
+            is_intermediate=self.is_intermediate,
+            workflow=self.workflow,
+        )
+
+        return ImageOutput(
+            image=ImageField(image_name=image_dto.image_name),
+            width=image_dto.width,
+            height=image_dto.height,
+        )
+
+    def invoke(self, context: InvocationContext) -> ImageOutput:
+        result = self.faceidentifier(context)
+
+        if result is None:
+            image = context.services.images.get_pil_image(self.image.image_name)
+            context.services.logger.warning(f'FaceIdentifier --> No face detected. Passing through original image without drawing FaceIDs.')
+
+            image_dto = context.services.images.create(
+                image=image,
+                image_origin=ResourceOrigin.INTERNAL,
+                image_category=ImageCategory.GENERAL,
+                node_id=self.id,
+                session_id=context.graph_execution_state_id,
+                is_intermediate=self.is_intermediate,
+                workflow=self.workflow,
+            )
+
+            result = ImageOutput(
+                image=ImageField(image_name=image_dto.image_name),
+                width=image_dto.width,
+                height=image_dto.height,
             )
 
         return result
