@@ -1,4 +1,4 @@
-## FaceTools 3.8
+## FaceTools 3.9
 ## Nodes for InvokeAI, written by YMGenesis/Matthew Janik & JPPhoto/Jonathan S. Pollack
 
 import math
@@ -6,7 +6,7 @@ import math
 import cv2
 import mediapipe as mp
 import numpy as np
-from PIL import Image, ImageDraw, ImageOps, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 from invokeai.app.invocations.baseinvocation import (
     BaseInvocation,
@@ -281,9 +281,7 @@ def get_faces_list(
             draw_mesh,
         )
     if should_chunk or len(result) == 0:
-        context.services.logger.info(
-            "FaceTools --> Chunking image (chunk toggled on, or no face found in full image)."
-        )
+        context.services.logger.info("FaceTools --> Chunking image (chunk toggled on, or no face found in full image).")
         width, height = image.size
         image_chunks = []
         x_offsets = []
@@ -484,7 +482,7 @@ class FaceMaskInvocation(BaseInvocation):
             self.y_offset,
         )
 
-        mask_pil = Image.new(mode="L", size=((image.size)), color=0)
+        mask_pil = Image.new(mode="L", size=((image.size)), color=255)
 
         id_range = range(0, len(all_faces))
 
@@ -501,7 +499,7 @@ class FaceMaskInvocation(BaseInvocation):
                     context, image, all_faces, face_id, 0
                 )
                 mask_pil.paste(
-                    Image.new(mode="L", size=((x_max - x_min, y_max - y_min)), color=255),
+                    Image.new(mode="L", size=((x_max - x_min, y_max - y_min)), color=0),
                     box=(x_min, y_min),
                     mask=ImageOps.invert(face_mask_pil),
                 )
